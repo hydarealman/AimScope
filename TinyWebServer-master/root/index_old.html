@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>自瞄调试面板</title>
+  <style>
+    body { margin: 0; font-family: monospace; background: #1e1e1e; color: #ddd; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto 1fr auto; height: 100vh; gap: 8px; padding: 8px; }
+    .serial-data { grid-column: 1 / 4; display: flex; justify-content: space-around; flex-wrap: wrap; }
+    .image-left  { grid-column: 1 / 2; grid-row: 2; }
+    .image-right { grid-column: 2 / 3; grid-row: 2; }
+    .debug-panel { grid-column: 3 / 4; grid-row: 2; display: flex; flex-direction: column; }
+    .debug-values { flex: 1; }
+    .bottom-debug { grid-column: 1 / 4; display: flex; justify-content: space-around; }
+    .card { background: #2d2d30; border-radius: 8px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+    img, canvas { width: 100%; height: auto; border-radius: 4px; }
+    .value { color: #4ec9b0; font-weight: bold; }
+    h3 { margin: 0 0 5px; color: #569cd6; }
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <div class="card serial-data" id="serial-area">
+      <div><h3>视觉→电控</h3> angle: <span id="vis-angle" class="value">--</span></div>
+      <div><h3>电控→自瞄</h3>
+        R: <span id="imu-roll" class="value">0.00</span> |
+        P: <span id="imu-pitch" class="value">0.00</span> |
+        Y: <span id="imu-yaw" class="value">0.00</span> |
+        阵营: <span id="imu-camp" class="value">-</span> |
+        射击: <span id="imu-shoot" class="value">-</span> |
+        弹速: <span id="imu-bv" class="value">0.0</span>
+      </div>
+    </div>
+    <div class="card image-left">
+      <h3>相机原始画面</h3>
+      <canvas id="raw-canvas" width="640" height="480"></canvas>
+    </div>
+    <div class="card image-right">
+      <h3>自瞄重投影</h3>
+      <canvas id="result-canvas" width="640" height="480"></canvas>
+    </div>
+    <div class="card debug-panel">
+      <h3>Debug 数据</h3>
+      <div class="debug-values">
+        debugpub: <span id="dbg0" class="value">--</span><br>
+        debugpub1: <span id="dbg1" class="value">--</span><br>
+        debugpub2: <span id="dbg2" class="value">--</span>
+      </div>
+    </div>
+    <div class="card bottom-debug">
+      <span>更新时间：<span id="timestamp" class="value">--</span></span>
+      <span>连接状态：<span id="status" class="value" style="color: orange;">连接中...</span></span>
+    </div>
+  </div>
+  <script src="roslib.min.js"></script>
+  <script src="monitor.js"></script>
+</body>
+</html>
