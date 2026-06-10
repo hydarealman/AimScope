@@ -1,0 +1,27 @@
+# 安装mysql
+sudo apt update
+sudo apt install mysql-server
+
+# 设置与修改root密码
+# 1. 使用sudo权限登录MySQL（此时无需密码）
+sudo mysql
+
+# 2. 在MySQL命令行中执行以下SQL语句，将密码设置为 'yourpassword'（请替换为你自己的密码）
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'yourpassword';
+
+# 3. 刷新权限并退出
+FLUSH PRIVILEGES;
+EXIT;
+
+
+# 验证安装
+mysql -u root -p
+
+# 密码
+123
+
+
+
+# 查看Ubantu的IP地址
+ip addr show | grep inet
+

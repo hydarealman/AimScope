@@ -1,0 +1,5 @@
+# 进入容器
+sudo docker exec -it dong /bin/bash
+
+
+export CARGO_BUILD_JOBS=8   # 根据你宿主机的 CPU 核心数调整

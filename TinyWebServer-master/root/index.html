@@ -1,560 +1,569 @@
 <!DOCTYPE html>
 <html lang="zh" data-theme="dark">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AimScope — 自瞄调试面板</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AimScope — 调试面板</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<!-- Three.js 懒加载，不在此处引入 -->
 
-  <!-- Vue 3 CDN (生产版) -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <!-- Three.js CDN (全局构建) -->
-  <script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
+<style>
+/* ============================================================
+   主题变量 — 简约干净
+   ============================================================ */
+:root, [data-theme="dark"] {
+  --bg:       #1a1a2e;
+  --bg2:      #222240;
+  --bg3:      #252536;
+  --border:   #333350;
+  --text:     #c8c8d4;
+  --text2:    #8888a0;
+  --text3:    #5a5a78;
+  --accent:   #3b82f6;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --orange:   #f59e0b;
+  --shadow:   0 1px 3px rgba(0,0,0,0.3);
+  --radius:   6px;
+  --font:     system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:     'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  --trans:    150ms ease;
+  --sidebar-w: 200px;
+  --img-w:     340px;
+  --status-h:  30px;
+}
+[data-theme="light"] {
+  --bg:       #f8f9fb;
+  --bg2:      #ffffff;
+  --bg3:      #f1f3f6;
+  --border:   #e2e4e9;
+  --text:     #1a1a2e;
+  --text2:    #6b7280;
+  --text3:    #9ca3af;
+  --accent:   #2563eb;
+  --green:    #16a34a;
+  --red:      #dc2626;
+  --orange:   #d97706;
+  --shadow:   0 1px 3px rgba(0,0,0,0.08);
+}
 
-  <style>
-    /* ============================================================
-       CSS Custom Properties — 主题系统
-       ============================================================ */
-    :root,
-    [data-theme="dark"] {
-      --bg-root:        #0a0e17;
-      --bg-panel:       #111827;
-      --bg-panel-hover: #1a2332;
-      --bg-input:       #0d1321;
-      --bg-statusbar:   #080c14;
-      --border:         #1e2d45;
-      --border-glow:    rgba(0, 229, 255, 0.12);
-      --text-primary:   #e2e8f0;
-      --text-secondary: #94a3b8;
-      --text-muted:     #556b82;
-      --accent:         #00e5ff;
-      --accent-dim:     rgba(0, 229, 255, 0.25);
-      --accent-glow:    0 0 12px rgba(0, 229, 255, 0.25);
-      --green:          #34d399;
-      --green-glow:     0 0 8px rgba(52, 211, 153, 0.3);
-      --red:            #f87171;
-      --red-glow:       0 0 8px rgba(248, 113, 113, 0.3);
-      --orange:         #fb923c;
-      --orange-glow:    0 0 8px rgba(251, 146, 60, 0.3);
-      --yellow:         #facc15;
-      --blue:           #60a5fa;
-      --purple:         #a78bfa;
-      --pink:           #f472b6;
-      --sidebar-w:      210px;
-      --panel-w:        310px;
-      --statusbar-h:    32px;
-      --radius:         8px;
-      --radius-sm:      4px;
-      --font-mono:      'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
-      --font-ui:        'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-      --transition:     180ms ease;
-    }
+* { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; overflow:hidden; }
+body {
+  font-family:var(--font); font-size:13px; color:var(--text);
+  background:var(--bg); line-height:1.5;
+}
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--text3); border-radius:3px; }
 
-    [data-theme="light"] {
-      --bg-root:        #f1f5f9;
-      --bg-panel:       #ffffff;
-      --bg-panel-hover: #f8fafc;
-      --bg-input:       #f1f5f9;
-      --bg-statusbar:   #e2e8f0;
-      --border:         #cbd5e1;
-      --border-glow:    rgba(14, 165, 233, 0.1);
-      --text-primary:   #1e293b;
-      --text-secondary: #475569;
-      --text-muted:     #94a3b8;
-      --accent:         #0ea5e9;
-      --accent-dim:     rgba(14, 165, 233, 0.18);
-      --accent-glow:    0 0 10px rgba(14, 165, 233, 0.12);
-      --green:          #10b981;
-      --green-glow:     0 0 6px rgba(16, 185, 129, 0.2);
-      --red:            #ef4444;
-      --red-glow:       0 0 6px rgba(239, 68, 68, 0.2);
-      --orange:         #f97316;
-      --orange-glow:    0 0 6px rgba(249, 115, 22, 0.2);
-    }
+/* ============================================================
+   主布局 — 三列 + 底部状态栏 + resize 分隔线
+   ============================================================ */
+#app {
+  display:grid;
+  grid-template-columns: var(--sidebar-w) 4px 1fr 4px var(--img-w);
+  grid-template-rows: 1fr var(--status-h);
+  height:100vh;
+}
 
-    /* ============================================================
-       全局重置
-       ============================================================ */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
-    body {
-      font-family: var(--font-ui);
-      font-size: 13px;
-      color: var(--text-primary);
-      background: var(--bg-root);
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-    }
+/* 列间 resize 手柄 */
+.col-resize {
+  width:4px; cursor:col-resize; background:var(--border);
+  transition: background var(--trans);
+  z-index:10;
+}
+.col-resize:hover, .col-resize.active { background:var(--accent); }
 
-    /* 自定义滚动条 */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb {
-      background: var(--text-muted);
-      border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+/* ============================================================
+   侧边栏
+   ============================================================ */
+.sidebar {
+  grid-row:1; grid-column:1;
+  background:var(--bg2); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow-y:auto;
+  min-width:160px;
+}
+.sidebar-brand {
+  padding:14px 16px 10px; border-bottom:1px solid var(--border);
+  font-weight:700; font-size:15px; color:var(--text);
+  display:flex; align-items:center; gap:8px;
+}
+.sidebar-nav { padding:8px; flex:1; }
+.sidebar-nav .sec-title {
+  font-size:10px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.06em; color:var(--text3); padding:10px 8px 4px;
+}
+.nav-btn {
+  width:100%; display:flex; align-items:center; gap:8px;
+  padding:7px 10px; border-radius:4px; border:none;
+  background:transparent; color:var(--text2); font-size:12px;
+  cursor:pointer; text-align:left; font-family:var(--font);
+  transition:all var(--trans);
+}
+.nav-btn:hover { background:var(--bg3); color:var(--text); }
+.nav-btn.active { background:var(--accent); color:#fff; }
+.nav-btn .icon { width:18px; text-align:center; font-size:14px; flex-shrink:0; }
+.nav-btn .badge {
+  margin-left:auto; font-size:9px; padding:1px 6px;
+  border-radius:8px; background:var(--bg3); color:var(--text2);
+  font-family:var(--mono);
+}
+.nav-btn.active .badge { background:rgba(255,255,255,0.2); color:#fff; }
+.sidebar-footer {
+  padding:10px 16px; border-top:1px solid var(--border);
+  font-size:10px; color:var(--text3);
+}
 
-    /* ============================================================
-       主布局 — CSS Grid
-       ============================================================ */
-    #app {
-      display: grid;
-      grid-template-columns: var(--sidebar-w) 1fr var(--panel-w);
-      grid-template-rows: 1fr var(--statusbar-h);
-      height: 100vh;
-      gap: 1px;
-      background: var(--border);
-    }
+/* 录制控件 */
+.rec-box { padding:8px; }
+.rec-btn {
+  width:100%; padding:8px 12px; border-radius:4px; border:1px solid var(--border);
+  cursor:pointer; font-size:12px; font-weight:600; font-family:var(--font);
+  transition:all var(--trans); display:flex; align-items:center; gap:6px;
+  background:var(--bg3); color:var(--text);
+}
+.rec-btn:hover { border-color:var(--accent); }
+.rec-btn.recording {
+  background:var(--red); color:#fff; border-color:var(--red);
+  animation:recPulse 1.5s infinite;
+}
+@keyframes recPulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+.rec-timer { font-family:var(--mono); font-size:15px; font-weight:700; margin-left:auto; }
+.rec-opt { display:flex; align-items:center; gap:6px; padding:6px 4px; font-size:11px; color:var(--text2); }
+.rec-opt input[type=checkbox] { accent-color:var(--accent); }
+.sm-btn {
+  width:100%; padding:6px 10px; border-radius:4px; border:1px dashed var(--border);
+  background:transparent; color:var(--text2); font-size:11px; cursor:pointer;
+  font-family:var(--font); transition:all var(--trans); margin-top:4px;
+}
+.sm-btn:hover { border-color:var(--accent); color:var(--accent); }
+.sm-btn.dir-set { border-style:solid; border-color:var(--green); color:var(--green); }
 
-    /* ============================================================
-       侧边栏
-       ============================================================ */
-    .sidebar {
-      grid-row: 1 / 2;
-      grid-column: 1 / 2;
-      background: var(--bg-panel);
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-      border-right: 1px solid var(--border);
-    }
-    .sidebar-brand {
-      padding: 16px 16px 12px;
-      display: flex; align-items: center; gap: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    .sidebar-brand .logo {
-      width: 32px; height: 32px;
-      border-radius: var(--radius-sm);
-      background: linear-gradient(135deg, var(--accent), #6366f1);
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 16px; color: #fff;
-      box-shadow: var(--accent-glow);
-    }
-    .sidebar-brand .title {
-      font-weight: 700; font-size: 15px;
-      background: linear-gradient(135deg, var(--accent), #a78bfa);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .sidebar-nav { padding: 8px; flex: 1; }
-    .sidebar-nav .section-title {
-      font-size: 10px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.08em; color: var(--text-muted);
-      padding: 10px 10px 6px;
-    }
-    .nav-btn {
-      width: 100%; display: flex; align-items: center; gap: 10px;
-      padding: 9px 12px; border-radius: var(--radius-sm);
-      border: none; background: transparent;
-      color: var(--text-secondary); font-family: var(--font-ui);
-      font-size: 13px; cursor: pointer; text-align: left;
-      transition: all var(--transition);
-      position: relative;
-    }
-    .nav-btn:hover { background: var(--bg-panel-hover); color: var(--text-primary); }
-    .nav-btn.active {
-      color: var(--accent); background: var(--accent-dim);
-      box-shadow: inset 2px 0 0 var(--accent);
-    }
-    .nav-btn .icon { width: 18px; text-align: center; font-size: 15px; flex-shrink: 0; }
-    .nav-btn .badge {
-      margin-left: auto; font-size: 10px; padding: 1px 7px;
-      border-radius: 10px; background: var(--accent-dim); color: var(--accent);
-      font-family: var(--font-mono); font-weight: 700;
-    }
-    .sidebar-footer {
-      padding: 10px 16px; border-top: 1px solid var(--border);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .sidebar-footer .version {
-      font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
-    }
+/* ============================================================
+   中间主区域 — 图表
+   ============================================================ */
+.main-area {
+  grid-row:1; grid-column:3;
+  display:flex; flex-direction:column; background:var(--bg);
+  overflow:hidden;
+  /* 图表占据 2/3 */
+}
+.charts-panel {
+  flex:1; display:flex; flex-direction:column; overflow-y:auto;
+  padding:10px 12px; gap:8px;
+}
+.chart-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); box-shadow:var(--shadow);
+  overflow:hidden; flex:1; min-height:0;
+}
+.chart-card-header {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 10px; border-bottom:1px solid var(--border);
+  font-size:11px; font-weight:600; color:var(--text2);
+  flex-shrink:0;
+}
+.chart-card-header .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.chart-card canvas { width:100%; height:100%; display:block; }
+.chart-card .range-row {
+  display:flex; align-items:center; gap:4px;
+  padding:4px 8px; border-top:1px solid var(--border);
+  font-size:10px; flex-shrink:0;
+}
+.range-row .rl { color:var(--text3); font-size:9px; flex-shrink:0; }
+.range-row input {
+  width:54px; padding:2px 4px; border-radius:3px;
+  border:1px solid var(--border); background:var(--bg);
+  color:var(--text); font-family:var(--mono); font-size:10px;
+  text-align:right; outline:none;
+}
+.range-row input:focus { border-color:var(--accent); }
+.range-row input.short { width:38px; }
+.range-row .sep { color:var(--text3); }
 
-    /* ============================================================
-       主视图区域
-       ============================================================ */
-    .main-area {
-      grid-row: 1 / 2;
-      grid-column: 2 / 3;
-      display: flex; flex-direction: column;
-      background: var(--bg-root);
-      overflow: hidden;
-    }
-    .main-tabs {
-      display: flex; gap: 0;
-      background: var(--bg-panel);
-      border-bottom: 1px solid var(--border);
-      padding: 0 12px;
-      flex-shrink: 0;
-    }
-    .tab-btn {
-      padding: 10px 18px; border: none; background: transparent;
-      color: var(--text-muted); font-family: var(--font-ui);
-      font-size: 13px; font-weight: 600; cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all var(--transition);
-      position: relative; top: 1px;
-    }
-    .tab-btn:hover { color: var(--text-primary); }
-    .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-    }
-    .main-content {
-      flex: 1; display: flex; align-items: center; justify-content: center;
-      position: relative; overflow: hidden;
-      background: #000; /* canvas background */
-    }
-    .main-content canvas {
-      max-width: 100%; max-height: 100%; object-fit: contain;
-    }
-    .main-content .placeholder {
-      color: var(--text-muted); font-size: 15px;
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-    }
-    .main-content .placeholder .icon { font-size: 48px; opacity: 0.3; }
-    .main-overlay {
-      position: absolute; top: 10px; left: 10px;
-      font-family: var(--font-mono); font-size: 11px;
-      color: var(--accent); background: rgba(0,0,0,0.6);
-      padding: 3px 8px; border-radius: var(--radius-sm);
-      pointer-events: none;
-    }
+/* ============================================================
+   右侧 — 图像 + 数据面板
+   ============================================================ */
+.img-panel {
+  grid-row:1; grid-column:5;
+  display:flex; flex-direction:column;
+  background:var(--bg2); border-left:1px solid var(--border);
+  overflow-y:auto; min-width:260px;
+}
+.img-tabs {
+  display:flex; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.img-tab {
+  flex:1; padding:8px; border:none; background:transparent;
+  color:var(--text3); font-size:11px; font-weight:600;
+  cursor:pointer; font-family:var(--font); transition:all var(--trans);
+  border-bottom:2px solid transparent;
+}
+.img-tab:hover { color:var(--text); }
+.img-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.img-view {
+  position:relative; background:#000; flex-shrink:0;
+  aspect-ratio:4/3; display:flex; align-items:center; justify-content:center;
+}
+.img-view canvas { max-width:100%; max-height:100%; object-fit:contain; }
+.img-view .placeholder {
+  position:absolute; color:var(--text3); font-size:13px;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+}
+.data-section {
+  padding:10px 14px; border-bottom:1px solid var(--border);
+}
+.data-section h3 {
+  font-size:10px; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.05em; color:var(--text3); margin-bottom:8px;
+}
+.data-row {
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:3px 0;
+}
+.data-row .dl { color:var(--text2); font-size:11px; }
+.data-row .dv {
+  font-family:var(--mono); font-size:12px; font-weight:600;
+  color:var(--accent); text-align:right; min-width:65px;
+  transition:color 0.2s;
+}
+.data-row .dv.hi { color:var(--green); }
+.data-row .dv.wn { color:var(--orange); }
+.data-row .dv.dg { color:var(--red); }
+.mini-bar { height:3px; border-radius:2px; background:var(--border); margin:2px 0 4px; overflow:hidden; }
+.mini-bar .fill { height:100%; border-radius:2px; background:var(--accent); transition:width 0.15s; }
+.camp-tag {
+  display:inline-block; padding:1px 8px; border-radius:8px; font-size:10px; font-weight:700; font-family:var(--mono);
+}
+.camp-tag.r { background:rgba(239,68,68,0.12); color:var(--red); }
+.camp-tag.b { background:rgba(59,130,246,0.12); color:var(--accent); }
+.shoot-dot {
+  display:inline-block; width:8px; height:8px; border-radius:50%; vertical-align:middle; margin-right:3px;
+  background:var(--border); transition:all 0.15s;
+}
+.shoot-dot.on { background:var(--red); }
+.flash { animation:fl 0.35s ease-out; }
+@keyframes fl { 0%{filter:brightness(1.8)} 100%{filter:brightness(1)} }
 
-    /* ============================================================
-       右侧面板
-       ============================================================ */
-    .right-panel {
-      grid-row: 1 / 2;
-      grid-column: 3 / 4;
-      background: var(--bg-panel);
-      display: flex; flex-direction: column;
-      overflow-y: auto;
-      border-left: 1px solid var(--border);
-    }
-    .panel-section {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .panel-section:last-child { border-bottom: none; }
-    .panel-section h3 {
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.06em; color: var(--text-muted);
-      margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
-    }
-    .panel-section h3 .dot {
-      width: 7px; height: 7px; border-radius: 50%; display: inline-block;
-    }
-    .panel-section h3 .dot.green  { background: var(--green);  box-shadow: var(--green-glow); }
-    .panel-section h3 .dot.blue   { background: var(--accent); box-shadow: var(--accent-glow); }
-    .panel-section h3 .dot.orange { background: var(--orange); box-shadow: var(--orange-glow); }
+/* ============================================================
+   底部状态栏
+   ============================================================ */
+.status-bar {
+  grid-row:2; grid-column:1 / 6;
+  background:var(--bg2); border-top:1px solid var(--border);
+  display:flex; align-items:center; padding:0 14px; gap:14px;
+  font-size:11px; font-family:var(--mono); color:var(--text3);
+}
+.status-dot { width:7px; height:7px; border-radius:50%; transition:all 0.3s; }
+.status-dot.connected { background:var(--green); }
+.status-dot.connecting { background:var(--orange); animation:recPulse 1s infinite; }
+.status-dot.disconnected { background:var(--red); }
+.status-bar .spc { flex:1; }
+.status-bar .fps { color:var(--green); font-weight:700; }
+.theme-btn {
+  background:var(--bg3); border:1px solid var(--border); color:var(--text2);
+  cursor:pointer; padding:2px 10px; border-radius:4px; font-size:11px;
+  font-family:var(--font); transition:all var(--trans);
+}
+.theme-btn:hover { border-color:var(--accent); color:var(--accent); }
 
-    .data-row {
-      display: flex; justify-content: space-between; align-items: baseline;
-      padding: 5px 0;
-    }
-    .data-row .label {
-      font-size: 12px; color: var(--text-secondary);
-      font-family: var(--font-ui);
-    }
-    .data-row .value {
-      font-family: var(--font-mono); font-size: 13px; font-weight: 700;
-      color: var(--accent);
-      transition: color 300ms ease;
-      min-width: 70px; text-align: right;
-    }
-    .data-row .value.highlight { color: var(--green); }
-    .data-row .value.warn      { color: var(--orange); }
-    .data-row .value.danger    { color: var(--red); }
+/* ============================================================
+   回放工具栏
+   ============================================================ */
+.pb-bar {
+  position:fixed; bottom:36px; left:50%; transform:translateX(-50%);
+  background:var(--bg2); border:1px solid var(--orange);
+  border-radius:var(--radius); padding:8px 14px; display:flex;
+  align-items:center; gap:10px; box-shadow:0 4px 16px rgba(0,0,0,0.4);
+  z-index:100; min-width:580px;
+}
+.pb-btn {
+  background:none; border:none; color:var(--text); font-size:16px;
+  cursor:pointer; padding:3px 6px; border-radius:4px; transition:all var(--trans);
+}
+.pb-btn:hover { background:var(--bg3); }
+.pb-timeline {
+  flex:1; height:5px; border-radius:3px; background:var(--border);
+  cursor:pointer; -webkit-appearance:none; appearance:none; outline:none;
+}
+.pb-timeline::-webkit-slider-thumb {
+  -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--orange); cursor:pointer;
+}
+.pb-time { font-family:var(--mono); font-size:10px; color:var(--text2); white-space:nowrap; }
+.pb-speed { display:flex; gap:2px; }
+.pb-sp {
+  background:var(--bg3); border:1px solid var(--border); color:var(--text3);
+  font-size:9px; font-family:var(--mono); padding:2px 7px; border-radius:3px;
+  cursor:pointer; transition:all var(--trans);
+}
+.pb-sp.on { background:var(--orange); color:#000; border-color:var(--orange); font-weight:700; }
+.pb-exit {
+  background:none; border:1px solid var(--red); color:var(--red);
+  font-size:10px; padding:3px 8px; border-radius:4px; cursor:pointer;
+  font-family:var(--font); transition:all var(--trans);
+}
+.pb-exit:hover { background:var(--red); color:#fff; }
 
-    .mini-bar {
-      height: 4px; border-radius: 2px; background: var(--border);
-      margin-top: 4px; overflow: hidden;
-    }
-    .mini-bar .fill {
-      height: 100%; border-radius: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--purple));
-      transition: width 200ms ease;
-    }
+/* 回放覆盖层标签 */
+.pb-overlay {
+  position:absolute; top:8px; right:8px;
+  background:rgba(245,158,11,0.12); color:var(--orange);
+  border:1px solid rgba(245,158,11,0.3);
+  padding:3px 10px; border-radius:4px; font-size:10px;
+  font-weight:700; font-family:var(--mono); z-index:10;
+}
 
-    /* 阵营指示器 */
-    .camp-badge {
-      display: inline-block; padding: 2px 10px; border-radius: 10px;
-      font-size: 11px; font-weight: 700; font-family: var(--font-mono);
-    }
-    .camp-badge.red  { background: rgba(248,113,113,0.15); color: var(--red); }
-    .camp-badge.blue { background: rgba(96,165,250,0.15); color: var(--blue); }
-
-    /* 射击指示 */
-    .shoot-indicator {
-      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
-      vertical-align: middle; margin-right: 4px;
-      transition: all 150ms ease;
-    }
-    .shoot-indicator.on  { background: var(--red);    box-shadow: var(--red-glow); }
-    .shoot-indicator.off { background: var(--border); box-shadow: none; }
-
-    /* ============================================================
-       底部状态栏
-       ============================================================ */
-    .status-bar {
-      grid-row: 2 / 3;
-      grid-column: 1 / 4;
-      background: var(--bg-statusbar);
-      border-top: 1px solid var(--border);
-      display: flex; align-items: center;
-      padding: 0 16px; gap: 20px;
-      font-size: 11px; font-family: var(--font-mono);
-      color: var(--text-muted);
-    }
-    .status-bar .status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      transition: all 300ms ease;
-    }
-    .status-bar .status-dot.connected    { background: var(--green);  box-shadow: var(--green-glow); animation: pulse 2s infinite; }
-    .status-bar .status-dot.connecting   { background: var(--orange); box-shadow: var(--orange-glow); animation: pulse 0.8s infinite; }
-    .status-bar .status-dot.disconnected { background: var(--red);    box-shadow: var(--red-glow); }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%      { opacity: 0.5; }
-    }
-    .status-bar .sep { color: var(--border); }
-    .status-bar .spacer { flex: 1; }
-    .status-bar .fps { color: var(--green); font-weight: 700; }
-    .status-bar .ros-url { color: var(--text-secondary); }
-    .theme-toggle {
-      background: var(--bg-input); border: 1px solid var(--border);
-      color: var(--text-secondary); cursor: pointer;
-      padding: 3px 12px; border-radius: var(--radius-sm);
-      font-size: 12px; font-family: var(--font-ui);
-      transition: all var(--transition);
-    }
-    .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
-
-    /* ============================================================
-       通用组件
-       ============================================================ */
-    .glow-panel {
-      border: 1px solid var(--border);
-      box-shadow: inset 0 1px 0 var(--border-glow);
-      border-radius: var(--radius);
-      background: var(--bg-panel);
-    }
-
-    /* 闪光更新 */
-    .flash {
-      animation: flash 400ms ease-out;
-    }
-    @keyframes flash {
-      0%   { filter: brightness(1.6); }
-      100% { filter: brightness(1); }
-    }
-
-    /* 响应式 - 小屏幕时隐藏侧边栏 */
-    @media (max-width: 1100px) {
-      #app {
-        grid-template-columns: 1fr var(--panel-w);
-        grid-template-rows: auto 1fr var(--statusbar-h);
-      }
-      .sidebar { display: none; }
-      .main-tabs::before {
-        content: 'AimScope'; font-weight: 700; font-size: 14px;
-        background: linear-gradient(135deg, var(--accent), #a78bfa);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-right: auto; align-self: center;
-      }
-      .main-area  { grid-column: 1 / 2; grid-row: 2 / 3; }
-      .right-panel { grid-column: 2 / 3; grid-row: 1 / 3; }
-      .status-bar { grid-column: 1 / 2; grid-row: 3 / 4; }
-    }
-  </style>
+/* ============================================================
+   响应式
+   ============================================================ */
+@media (max-width:900px) {
+  #app { grid-template-columns:1fr; grid-template-rows:auto 1fr auto auto; }
+  .sidebar { grid-row:1; grid-column:1; flex-direction:row; overflow-x:auto; }
+  .main-area { grid-row:2; grid-column:1; }
+  .img-panel { grid-row:3; grid-column:1; flex-direction:row; }
+  .status-bar { grid-row:4; grid-column:1; }
+}
+</style>
 </head>
 <body>
-  <div id="app">
-    <!-- =========================================================
-         侧边栏
-         ========================================================= -->
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <div class="logo">◇</div>
-        <span class="title">AimScope</span>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="section-title">视图切换</div>
-        <button class="nav-btn" :class="{ active: activeView === 'raw' }" @click="activeView = 'raw'">
-          <span class="icon">📷</span> 原始画面
-          <span class="badge" v-if="rawFps > 0">{{ rawFps }} fps</span>
-        </button>
-        <button class="nav-btn" :class="{ active: activeView === 'result' }" @click="activeView = 'result'">
-          <span class="icon">🎯</span> 重投影
-          <span class="badge" v-if="resultFps > 0">{{ resultFps }} fps</span>
-        </button>
-        <button class="nav-btn" :class="{ active: activeView === '3d' }" @click="activeView = '3d'; init3D()">
-          <span class="icon">🧊</span> 3D 可视化
-        </button>
-        <div class="section-title">ROS 话题</div>
-        <button class="nav-btn">
-          <span class="icon">📡</span> /auto_angle
-        </button>
-        <button class="nav-btn">
-          <span class="icon">🔄</span> /RmSerialData
-        </button>
-        <button class="nav-btn">
-          <span class="icon">🐛</span> Debug 话题
-        </button>
-      </nav>
-      <div class="sidebar-footer">
-        <span class="version">v2.0.0</span>
-        <span style="flex:1"></span>
-        <span class="version">ROS Bridge</span>
-      </div>
-    </aside>
 
-    <!-- =========================================================
-         主视图
-         ========================================================= -->
-    <main class="main-area">
-      <div class="main-tabs">
-        <button class="tab-btn" :class="{ active: activeView === 'raw' }" @click="activeView = 'raw'">
-          📷 原始画面
+<div id="app">
+  <!-- ==========================================================
+       侧边栏
+       ========================================================== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">◇ AimScope</div>
+    <nav class="sidebar-nav">
+      <div class="sec-title">录制 &amp; 回放</div>
+      <div class="rec-box">
+        <button class="rec-btn" :class="{ recording: isRecording }" @click="toggleRec">
+          <span v-if="!isRecording">⏺ 录制</span>
+          <span v-else>⏹ 停止</span>
+          <span v-if="isRecording" class="rec-timer">{{ recordTimer }}</span>
         </button>
-        <button class="tab-btn" :class="{ active: activeView === 'result' }" @click="activeView = 'result'">
-          🎯 重投影
+        <label class="rec-opt">
+          <input type="checkbox" v-model="recordIncludeImages"> 含图像
+        </label>
+        <button class="sm-btn" :class="{ 'dir-set': recDirName }" @click="pickRecDir">
+          📁 {{ recDirName || '选择保存目录' }}
         </button>
-        <button class="tab-btn" :class="{ active: activeView === '3d' }" @click="activeView = '3d'; init3D()">
-          🧊 3D 可视化
+        <input type="file" accept=".json,.aimscope.json" style="display:none"
+          id="loadFileInput" @change="loadPbInput">
+        <button class="sm-btn" @click="document.getElementById('loadFileInput').click()">
+          📂 加载录制
         </button>
       </div>
-      <div class="main-content" ref="mainContent">
-        <!-- 原始画面 -->
-        <div v-show="activeView === 'raw'" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-          <canvas id="raw-canvas" width="640" height="480" ref="rawCanvas"
-            style="max-width:100%;max-height:100%;object-fit:contain;border-radius:var(--radius-sm);"></canvas>
-          <div v-if="!rawImgReceived" class="placeholder" style="position:absolute;">
-            <span class="icon">📷</span>
-            <span>等待相机画面...</span>
-          </div>
-        </div>
-        <!-- 重投影画面 -->
-        <div v-show="activeView === 'result'" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-          <canvas id="result-canvas" width="640" height="480" ref="resultCanvas"
-            style="max-width:100%;max-height:100%;object-fit:contain;border-radius:var(--radius-sm);"></canvas>
-          <div v-if="!resultImgReceived" class="placeholder" style="position:absolute;">
-            <span class="icon">🎯</span>
-            <span>等待重投影画面...</span>
-          </div>
-        </div>
-        <!-- 3D 视图 -->
-        <div v-show="activeView === '3d'" style="width:100%;height:100%;position:relative;" ref="threeContainer">
-          <div v-if="!threeReady" class="placeholder" style="position:absolute;inset:0;">
-            <span class="icon">🧊</span>
-            <span>初始化 3D 引擎...</span>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <!-- =========================================================
-         右侧面板
-         ========================================================= -->
-    <aside class="right-panel">
-      <!-- IMU / 电控数据 -->
-      <div class="panel-section">
-        <h3><span class="dot blue"></span> 电控 → 自瞄</h3>
-        <div class="data-row">
-          <span class="label">Roll 翻滚</span>
-          <span class="value" :class="flashKeys.roll ? 'flash' : ''">{{ imuData.roll.toFixed(3) }}°</span>
-        </div>
-        <div class="mini-bar"><div class="fill" :style="{ width: (Math.abs(imuData.roll) / 0.2 * 100) + '%' }"></div></div>
-        <div class="data-row">
-          <span class="label">Pitch 俯仰</span>
-          <span class="value" :class="flashKeys.pitch ? 'flash' : ''">{{ imuData.pitch.toFixed(3) }}°</span>
-        </div>
-        <div class="mini-bar"><div class="fill" :style="{ width: (Math.abs(imuData.pitch) / 0.1 * 100) + '%' }"></div></div>
-        <div class="data-row">
-          <span class="label">Yaw 偏航</span>
-          <span class="value" :class="flashKeys.yaw ? 'flash' : ''">{{ imuData.yaw.toFixed(3) }}°</span>
-        </div>
-        <div class="mini-bar"><div class="fill" :style="{ width: (Math.abs(imuData.yaw) / 3.14 * 100) + '%' }"></div></div>
-        <div class="data-row">
-          <span class="label">弹速</span>
-          <span class="value">{{ imuData.bulletVec.toFixed(2) }} m/s</span>
-        </div>
-        <div class="data-row">
-          <span class="label">阵营 / 射击</span>
-          <span>
-            <span class="camp-badge" :class="imuData.camp === 1 ? 'red' : 'blue'">
-              {{ imuData.camp === 1 ? '🔴 红' : '🔵 蓝' }}
-            </span>
-            <span style="margin-left:6px;">
-              <span class="shoot-indicator" :class="imuData.shoot ? 'on' : 'off'"></span>
-              {{ imuData.shoot ? '射击中' : '待命' }}
-            </span>
-          </span>
-        </div>
-      </div>
-
-      <!-- 视觉角度 -->
-      <div class="panel-section">
-        <h3><span class="dot green"></span> 视觉 → 电控</h3>
-        <div class="data-row">
-          <span class="label">X</span>
-          <span class="value highlight">{{ angleData.x.toFixed(4) }}</span>
-        </div>
-        <div class="data-row">
-          <span class="label">Y</span>
-          <span class="value highlight">{{ angleData.y.toFixed(4) }}</span>
-        </div>
-        <div class="data-row">
-          <span class="label">Z</span>
-          <span class="value highlight">{{ angleData.z.toFixed(4) }}</span>
-        </div>
-      </div>
-
-      <!-- Debug 数据 -->
-      <div class="panel-section">
-        <h3><span class="dot orange"></span> Debug 输出</h3>
-        <div class="data-row">
-          <span class="label">debugpub0</span>
-          <span class="value warn">{{ debugData.dbg0.toFixed(6) }}</span>
-        </div>
-        <div class="data-row">
-          <span class="label">debugpub1</span>
-          <span class="value warn">{{ debugData.dbg1.toFixed(6) }}</span>
-        </div>
-        <div class="data-row">
-          <span class="label">debugpub2</span>
-          <span class="value warn">{{ debugData.dbg2.toFixed(6) }}</span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- =========================================================
-         底部状态栏
-         ========================================================= -->
-    <footer class="status-bar">
-      <span class="status-dot" :class="connClass"></span>
-      <span>{{ connStatus }}</span>
-      <span class="sep">|</span>
-      <span>更新: {{ timestamp }}</span>
-      <span class="sep">|</span>
-      <span>FPS: <span class="fps">{{ displayFps }}</span></span>
-      <span class="sep">|</span>
-      <span class="ros-url">{{ rosUrl }}</span>
-      <span class="spacer"></span>
-      <button class="theme-toggle" @click="toggleTheme" :title="theme === 'dark' ? '切换到亮色模式' : '切换到暗色模式'">
-        {{ theme === 'dark' ? '☀️ 亮色' : '🌙 暗色' }}
+      <div class="sec-title">视图</div>
+      <button class="nav-btn" :class="{ active: activeView === 'raw' }" @click="activeView = 'raw'">
+        <span class="icon">📷</span> 原始画面
       </button>
-    </footer>
-  </div>
+      <button class="nav-btn" :class="{ active: activeView === 'result' }" @click="activeView = 'result'">
+        <span class="icon">🎯</span> 重投影
+      </button>
+      <button class="nav-btn" :class="{ active: activeView === '3d' }" @click="activeView = '3d'; init3D()">
+        <span class="icon">🧊</span> 3D 可视化
+      </button>
+    </nav>
+    <div class="sidebar-footer">v2.2 · ROS Bridge</div>
+  </aside>
 
-  <!-- ============================================================
-       ROS 库 + 应用逻辑
-       ============================================================ -->
-  <script src="roslib.min.js"></script>
-  <script src="app.js"></script>
+  <!-- ==========================================================
+       列间 resize 手柄 1 (sidebar ↔ main)
+       ========================================================== -->
+  <div class="col-resize" data-col="sidebar"></div>
+
+  <!-- ==========================================================
+       中间主区域 — 时序图表
+       ========================================================== -->
+  <main class="main-area">
+    <div class="charts-panel">
+      <!-- IMU -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="dot" style="background:#ef4444"></span> IMU 姿态 (Roll/Pitch/Yaw)
+        </div>
+        <canvas ref="chartIMUCanvas" style="flex:1;min-height:100px;"></canvas>
+        <div class="range-row">
+          <span class="rl">Y</span>
+          <input type="number" v-model.number="chartRanges.imu.yMin" step="0.1" @change="applyChartRange('imu')">
+          <span class="sep">–</span>
+          <input type="number" v-model.number="chartRanges.imu.yMax" step="0.1" @change="applyChartRange('imu')">
+          <span class="rl" style="margin-left:8px;">窗</span>
+          <input type="number" class="short" v-model.number="chartRanges.imu.win" min="1" max="600" @change="applyChartRange('imu')">
+          <span class="rl">s</span>
+        </div>
+      </div>
+      <!-- Angle -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="dot" style="background:#eab308"></span> 瞄准角度 (X/Y/Z)
+        </div>
+        <canvas ref="chartAngleCanvas" style="flex:1;min-height:100px;"></canvas>
+        <div class="range-row">
+          <span class="rl">Y</span>
+          <input type="number" v-model.number="chartRanges.angle.yMin" step="0.05" @change="applyChartRange('angle')">
+          <span class="sep">–</span>
+          <input type="number" v-model.number="chartRanges.angle.yMax" step="0.05" @change="applyChartRange('angle')">
+          <span class="rl" style="margin-left:8px;">窗</span>
+          <input type="number" class="short" v-model.number="chartRanges.angle.win" min="1" max="600" @change="applyChartRange('angle')">
+          <span class="rl">s</span>
+        </div>
+      </div>
+      <!-- Debug -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <span class="dot" style="background:#f97316"></span> Debug 数据
+        </div>
+        <canvas ref="chartDebugCanvas" style="flex:1;min-height:100px;"></canvas>
+        <div class="range-row">
+          <span class="rl">Y</span>
+          <input type="number" v-model.number="chartRanges.debug.yMin" step="0.5" @change="applyChartRange('debug')">
+          <span class="sep">–</span>
+          <input type="number" v-model.number="chartRanges.debug.yMax" step="0.5" @change="applyChartRange('debug')">
+          <span class="rl" style="margin-left:8px;">窗</span>
+          <input type="number" class="short" v-model.number="chartRanges.debug.win" min="1" max="600" @change="applyChartRange('debug')">
+          <span class="rl">s</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==========================================================
+       列间 resize 手柄 2 (main ↔ img)
+       ========================================================== -->
+  <div class="col-resize" data-col="img"></div>
+
+  <!-- ==========================================================
+       右侧 — 图像 + 数据
+       ========================================================== -->
+  <aside class="img-panel">
+    <!-- 图像标签 -->
+    <div class="img-tabs">
+      <button class="img-tab" :class="{ active: activeView === 'raw' }" @click="activeView = 'raw'">原始</button>
+      <button class="img-tab" :class="{ active: activeView === 'result' }" @click="activeView = 'result'">重投影</button>
+      <button class="img-tab" :class="{ active: activeView === '3d' }" @click="activeView = '3d'; init3D()">3D</button>
+    </div>
+    <!-- 回放覆盖 -->
+    <div style="position:relative;">
+      <div v-if="isPMode" class="pb-overlay">{{ isPlaying ? '▶ 回放中' : (isPaused ? '⏸ 暂停' : '⏹ 就绪') }}</div>
+      <!-- 原始画面 -->
+      <div v-show="activeView === 'raw'" class="img-view">
+        <canvas id="raw-canvas" width="640" height="480" ref="rawCanvas"></canvas>
+        <div v-if="!rawImgReceived" class="placeholder"><span>📷</span> 等待画面...</div>
+      </div>
+      <!-- 重投影 -->
+      <div v-show="activeView === 'result'" class="img-view">
+        <canvas id="result-canvas" width="640" height="480" ref="resultCanvas"></canvas>
+        <div v-if="!resultImgReceived" class="placeholder"><span>🎯</span> 等待画面...</div>
+      </div>
+      <!-- 3D -->
+      <div v-show="activeView === '3d'" class="img-view" ref="threeContainer" style="aspect-ratio:auto;min-height:300px;">
+        <div v-if="!threeReady" class="placeholder"><span>🧊</span> 3D 加载中...</div>
+      </div>
+    </div>
+
+    <!-- 数据面板 -->
+    <div class="data-section">
+      <h3>电控 → 自瞄</h3>
+      <div class="data-row"><span class="dl">Roll</span><span class="dv" :class="flashKeys.roll?'flash':''">{{ imuData.roll.toFixed(3) }}°</span></div>
+      <div class="mini-bar"><div class="fill" :style="{width:Math.abs(imuData.roll)/0.2*100+'%'}"></div></div>
+      <div class="data-row"><span class="dl">Pitch</span><span class="dv" :class="flashKeys.pitch?'flash':''">{{ imuData.pitch.toFixed(3) }}°</span></div>
+      <div class="mini-bar"><div class="fill" :style="{width:Math.abs(imuData.pitch)/0.1*100+'%'}"></div></div>
+      <div class="data-row"><span class="dl">Yaw</span><span class="dv" :class="flashKeys.yaw?'flash':''">{{ imuData.yaw.toFixed(3) }}°</span></div>
+      <div class="mini-bar"><div class="fill" :style="{width:Math.abs(imuData.yaw)/3.14*100+'%'}"></div></div>
+      <div class="data-row"><span class="dl">弹速</span><span class="dv">{{ imuData.bulletVec.toFixed(1) }} m/s</span></div>
+      <div class="data-row">
+        <span class="dl">阵营 / 射击</span>
+        <span>
+          <span class="camp-tag" :class="imuData.camp===1?'r':'b'">{{ imuData.camp===1?'红':'蓝' }}</span>
+          <span class="shoot-dot" :class="imuData.shoot?'on':''" style="margin-left:6px;"></span>
+          {{ imuData.shoot?'射击':'待命' }}
+        </span>
+      </div>
+    </div>
+    <div class="data-section">
+      <h3>视觉 → 电控</h3>
+      <div class="data-row"><span class="dl">X</span><span class="dv hi">{{ angleData.x.toFixed(4) }}</span></div>
+      <div class="data-row"><span class="dl">Y</span><span class="dv hi">{{ angleData.y.toFixed(4) }}</span></div>
+      <div class="data-row"><span class="dl">Z</span><span class="dv hi">{{ angleData.z.toFixed(4) }}</span></div>
+    </div>
+    <div class="data-section">
+      <h3>Debug</h3>
+      <div class="data-row"><span class="dl">dbg0</span><span class="dv wn">{{ debugData.dbg0.toFixed(6) }}</span></div>
+      <div class="data-row"><span class="dl">dbg1</span><span class="dv wn">{{ debugData.dbg1.toFixed(6) }}</span></div>
+      <div class="data-row"><span class="dl">dbg2</span><span class="dv wn">{{ debugData.dbg2.toFixed(6) }}</span></div>
+    </div>
+  </aside>
+
+  <!-- ==========================================================
+       底部状态栏
+       ========================================================== -->
+  <footer class="status-bar">
+    <span class="status-dot" :class="connClass"></span>
+    <span>{{ connStatus }}</span>
+    <span>| 更新 {{ timestamp }}</span>
+    <span>| FPS <span class="fps">{{ displayFps }}</span></span>
+    <span>| {{ rosUrl }}</span>
+    <span class="spc"></span>
+    <button class="theme-btn" @click="toggleTheme">{{ theme==='dark'?'☀ 亮色':'🌙 暗色' }}</button>
+  </footer>
+
+  <!-- 回放工具栏 -->
+  <div v-if="isPMode" class="pb-bar">
+    <button class="pb-btn" @click="stopPb" title="停止">⏹</button>
+    <button class="pb-btn" @click="ppToggle" :title="isPlaying?'暂停':'播放'">{{ isPlaying?'⏸':'▶' }}</button>
+    <input type="range" class="pb-timeline" min="0" max="100" step="0.1"
+      :value="pbProgress" @input="seekPbPct(parseFloat($event.target.value))">
+    <span class="pb-time">{{ pbTimeDisp }}</span>
+    <div class="pb-speed">
+      <button class="pb-sp" :class="{on:pbSpeed===0.25}" @click="pbSpeed=0.25">0.25x</button>
+      <button class="pb-sp" :class="{on:pbSpeed===0.5}"  @click="pbSpeed=0.5">0.5x</button>
+      <button class="pb-sp" :class="{on:pbSpeed===1}"    @click="pbSpeed=1">1x</button>
+      <button class="pb-sp" :class="{on:pbSpeed===2}"    @click="pbSpeed=2">2x</button>
+      <button class="pb-sp" :class="{on:pbSpeed===4}"    @click="pbSpeed=4">4x</button>
+    </div>
+    <button class="pb-btn" @click="seekRel(-5000)" title="后退5秒">⏪</button>
+    <button class="pb-btn" @click="seekRel(5000)" title="前进5秒">⏩</button>
+    <button class="pb-exit" @click="exitPb">✕ 退出</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 列 resize 手柄逻辑
+// ============================================================
+(function() {
+  let dragging = null, startX = 0, startW = 0;
+  document.addEventListener('mousedown', function(e) {
+    const el = e.target.closest('.col-resize');
+    if (!el) return;
+    dragging = el.dataset.col;
+    startX = e.clientX;
+    el.classList.add('active');
+    const root = document.documentElement;
+    if (dragging === 'sidebar') startW = parseInt(getComputedStyle(root).getPropertyValue('--sidebar-w'));
+    if (dragging === 'img') startW = parseInt(getComputedStyle(root).getPropertyValue('--img-w'));
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const root = document.documentElement;
+    if (dragging === 'sidebar') root.style.setProperty('--sidebar-w', Math.max(160, Math.min(400, startW + dx)) + 'px');
+    if (dragging === 'img') root.style.setProperty('--img-w', Math.max(240, Math.min(600, startW - dx)) + 'px');
+  });
+  document.addEventListener('mouseup', function() {
+    if (dragging) {
+      document.querySelectorAll('.col-resize').forEach(el => el.classList.remove('active'));
+      dragging = null;
+      // ResizeObserver 会自动触发图表重绘
+    }
+  });
+})();
+</script>
+
+<script src="roslib.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
