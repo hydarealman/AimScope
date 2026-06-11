@@ -304,6 +304,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function startFps() { fpsT=setInterval(()=>{rawFps.value=rfc;rfc=0;resultFps.value=rsc;rsc=0;displayFps.value=rawFps.value+resultFps.value;},1000); }
 
     // ---- 图像解码 ----
+    // bug fix: rosbridge 对 uint8[] 类型字段会自动 Base64 编码
+    // 数据路径: Python list(jpg_bytes) → rosbridge Base64 编码 → 浏览器收到 Base64 字符串
+    // 如果用 new Uint8Array(string) 直接处理 Base64 字符串会得到无效数据
+    // 正确做法: atob() 解码 → 逐字符 charCodeAt() → Uint8Array
     function decodeImageData(d) {
       if (typeof d==='string'){const b=atob(d);const a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
       if (Array.isArray(d))return new Uint8Array(d);
