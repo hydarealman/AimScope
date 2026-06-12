@@ -1,0 +1,13 @@
+# Runtime logs
+Aimfile/*.log
+TinyWebServer-master/*_ServerLog
+
+# Temporary camera/debug captures
+Aimfile/latest_rosbridge_camera*.jpg
+Aimfile/camera_index_test/
+Aimfile/*screenshot*.png
+Aimfile/chrome-headless-profile*/
+
+# Python cache
+__pycache__/
+*.pyc

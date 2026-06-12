@@ -279,10 +279,15 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
 
     if (!m_url || m_url[0] != '/')
         return BAD_REQUEST;
-    //当url为/时，显示判断界面
+    char *query = strchr(m_url, '?');
+    if (query)
+        *query = '\0';
+    char *fragment = strchr(m_url, '#');
+    if (fragment)
+        *fragment = '\0';
+    // AimScope uses index.html as the static entry page.
     if (strlen(m_url) == 1)
-        strcat(m_url, "judge.html");
-        // strcat(m_url, "index.html");
+        strcat(m_url, "index.html");
     m_check_state = CHECK_STATE_HEADER;
     return NO_REQUEST;
 }
