@@ -26,7 +26,7 @@ wsl -e bash -lc "cd /mnt/d/AimScope/TinyWebServer-master && ./server -p 9006 -s 
 打开 WSL，运行：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_rosbridge.sh
 ```
 
 这个窗口不要关。
@@ -44,7 +44,7 @@ bash /mnt/d/AimScope/Aimfile/start_ros2_rosbridge.sh
 然后运行：
 
 ```powershell
-python D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py --camera-index 0
+python D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py --camera-index 0
 ```
 
 这个窗口不要关。

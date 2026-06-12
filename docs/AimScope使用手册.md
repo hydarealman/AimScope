@@ -3,25 +3,25 @@
 现在文档拆成三份：
 
 ```text
-D:\AimScope\Aimfile\AimScope最简启动手册.md
+D:\AimScope\docs\AimScope最简启动手册.md
 ```
 
 只想把程序跑起来，看这个。
 
 ```text
-D:\AimScope\Aimfile\AimScope环境配置文档.md
+D:\AimScope\docs\AimScope环境配置文档.md
 ```
 
 重装环境、换电脑、缺依赖时，看这个。
 
 ```text
-D:\AimScope\Aimfile\AimScope使用手册.md
+D:\AimScope\docs\AimScope使用手册.md
 ```
 
 需要理解 ROS1、ROS2、录制、播放、常见错误时，看这个。
 
 ```text
-D:\AimScope\Aimfile\AimScope项目结构说明.md
+D:\AimScope\docs\AimScope项目结构说明.md
 ```
 
 需要了解项目目录、文件职责、哪些文件是核心文件时，看这个。
@@ -138,7 +138,7 @@ sudo apt install -y ros-humble-rosbridge-suite
 也可以直接运行我给你准备好的安装脚本：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/install_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/install_ros2_rosbridge.sh
 ```
 
 ## ROS2 第 4 步：启动 rosbridge
@@ -155,7 +155,7 @@ ros2 launch rosbridge_server rosbridge_websocket_launch.xml port:=9090
 也可以直接运行我给你准备好的启动脚本：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_rosbridge.sh
 ```
 
 ## ROS2 第 5 步：网页连接 ROS2
@@ -302,13 +302,13 @@ ros2 launch rosbridge_server rosbridge_websocket_launch.xml port:=9090
 如果提示找不到 `rosbridge_server`，先运行：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/install_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/install_ros2_rosbridge.sh
 ```
 
 装完以后，再运行：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_rosbridge.sh
 ```
 
 ## 第 2 个终端：启动 AimScope 网页
@@ -380,7 +380,7 @@ xxx.aimscope.json
 
 你现在是 ROS2 Humble，用这个。
 
-不要在 Windows 的 `D:\AimScope\demo>` 里运行：
+不要在 Windows 的 `D:\AimScope\tools\publishers>` 里运行：
 
 ```text
 python aimscope_demo.py
@@ -407,7 +407,7 @@ ModuleNotFoundError: No module named 'rospy'
 打开一个 WSL 终端，运行：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_demo.sh
 ```
 
 这个窗口不要关。
@@ -415,7 +415,7 @@ bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh
 然后确保 rosbridge 也启动了：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_rosbridge.sh
 ```
 
 最后打开 AimScope 网页：
@@ -438,13 +438,13 @@ ROS 类型：ROS2
 如果你有多个摄像头，可以换摄像头编号：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh --camera-index 1
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_demo.sh --camera-index 1
 ```
 
 如果你暂时不想用摄像头，只想用模拟画面：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh --no-camera
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_demo.sh --no-camera
 ```
 
 注意：如果你在 WSL 里运行 demo，WSL 必须能看到摄像头设备。
@@ -484,7 +484,7 @@ ls /dev/video*
 在 WSL 里运行：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_rosbridge.sh
 ```
 
 这个窗口不要关。
@@ -494,7 +494,7 @@ bash /mnt/d/AimScope/Aimfile/start_ros2_rosbridge.sh
 打开 Windows PowerShell，运行：
 
 ```powershell
-python D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py
+python D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py
 ```
 
 如果提示缺 Python 包，先运行：
@@ -506,7 +506,7 @@ python -m pip install opencv-python numpy websocket-client
 然后再运行：
 
 ```powershell
-python D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py
+python D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py
 ```
 
 如果窗口里看到：
@@ -574,7 +574,7 @@ BUSID: 1-8
 在 Windows 文件管理器里找到：
 
 ```text
-D:\AimScope\Aimfile\attach_camera_to_wsl.ps1
+D:\AimScope\scripts\windows\attach_camera_to_wsl.ps1
 ```
 
 右键，选择：
@@ -586,7 +586,7 @@ D:\AimScope\Aimfile\attach_camera_to_wsl.ps1
 如果没有管理员权限，请用管理员 PowerShell 运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\AimScope\Aimfile\attach_camera_to_wsl.ps1
+powershell -ExecutionPolicy Bypass -File D:\AimScope\scripts\windows\attach_camera_to_wsl.ps1
 ```
 
 如果弹出 UAC，点“是”。
@@ -610,7 +610,7 @@ ls /dev/video*
 ### 第 3 步：启动 ROS2 demo
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_demo.sh
 ```
 
 这时 AimScope 的原始画面应该显示真实摄像头画面。
@@ -620,7 +620,7 @@ bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh
 如果你想让 Windows 重新使用摄像头，运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File D:\AimScope\Aimfile\detach_camera_from_wsl.ps1
+powershell -ExecutionPolicy Bypass -File D:\AimScope\scripts\windows\detach_camera_from_wsl.ps1
 ```
 
 注意：摄像头挂给 WSL 后，Windows 里的相机软件可能暂时不能同时使用它。
@@ -631,7 +631,7 @@ powershell -ExecutionPolicy Bypass -File D:\AimScope\Aimfile\detach_camera_from_
 
 ```bash
 source /opt/ros/noetic/setup.bash
-python3 /mnt/d/AimScope/demo/aimscope_demo.py
+python3 /mnt/d/AimScope/tools/publishers/aimscope_demo.py
 ```
 
 如果你用 Windows 的普通 Python 运行它，肯定会缺 `rospy`。
@@ -825,7 +825,7 @@ Get-CimInstance Win32_Process | Where-Object { ($_.Name -like 'python*') -and ($
 运行：
 
 ```powershell
-python D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py
+python D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py
 ```
 
 看到：
@@ -867,14 +867,14 @@ python aimscope_demo.py
 如果你是 ROS2，用这个：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_demo.sh
 ```
 
 如果你一定要运行 `aimscope_demo.py`，那必须安装并进入 ROS1 环境，例如 Noetic：
 
 ```bash
 source /opt/ros/noetic/setup.bash
-python3 /mnt/d/AimScope/demo/aimscope_demo.py
+python3 /mnt/d/AimScope/tools/publishers/aimscope_demo.py
 ```
 
 ## 错误 6：Assertion `ret >= 0' failed

@@ -1,2 +1,0 @@
-# 查找默认网关的地址,这个默认网关的地址通常就是宿主机的IP
-ip route show default

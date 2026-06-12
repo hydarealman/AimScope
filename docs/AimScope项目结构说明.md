@@ -12,12 +12,33 @@ D:\AimScope
 
 项目根目录。
 
-主要分成三块：
+主要分成五块：
 
 ```text
 TinyWebServer-master
-demo
-Aimfile
+tools
+scripts
+docs
+data
+```
+
+含义：
+
+```text
+TinyWebServer-master
+网页服务端和前端页面
+
+tools
+运行时辅助工具，例如摄像头 / ROS 数据发布器
+
+scripts
+启动、安装、摄像头挂载等脚本
+
+docs
+使用手册、环境配置、项目结构说明
+
+data
+录制文件、运行日志等运行时数据
 ```
 
 ---
@@ -43,6 +64,7 @@ index.html
 app.js
 roslib.min.js
 favicon.ico
+assets\
 vendor\
 ```
 
@@ -50,10 +72,10 @@ vendor\
 
 ```text
 index.html
-AimScope 网页主页面
+AimScope 网页主页面，只保留页面结构和脚本入口
 
 app.js
-AimScope 前端逻辑，负责连接 rosbridge、显示图像、显示姿态和图表
+AimScope 前端主业务逻辑，负责连接 rosbridge、订阅 topic、录制回放、事件报警、Topic 内容查看
 
 roslib.min.js
 浏览器连接 rosbridge 需要的 JS 库
@@ -61,11 +83,71 @@ roslib.min.js
 favicon.ico
 浏览器标签页图标
 
+assets\css\aimscope.css
+AimScope 页面样式，包含布局、主题、Topic 面板、图像面板、回放工具栏等样式
+
+assets\js\core\namespace.js
+AimScope 全局命名空间和扩展接口
+
+assets\js\core\ring-buffer.js
+图表使用的固定长度环形缓冲区
+
+assets\js\ui\interactive-chart.js
+可缩放、可拖动、可显示回放游标的 Canvas 图表组件
+
+assets\js\ui\panel-resize.js
+左侧栏、图像区、Topic/图表区域的拖拽调整大小逻辑
+
 vendor\vue.global.prod.js
 本地 Vue 运行库
 
 vendor\three.min.js
 本地 Three.js 运行库，用于 3D 姿态显示
+```
+
+前端加载顺序：
+
+```text
+index.html
+  -> assets/css/aimscope.css
+  -> assets/js/ui/panel-resize.js
+  -> assets/js/core/namespace.js
+  -> assets/js/core/ring-buffer.js
+  -> assets/js/ui/interactive-chart.js
+  -> roslib.min.js
+  -> app.js
+```
+
+后续开发建议：
+
+```text
+只改样式：
+改 assets/css/aimscope.css
+
+只改拖拽布局：
+改 assets/js/ui/panel-resize.js
+
+只改图表交互：
+改 assets/js/ui/interactive-chart.js
+
+只改 ROS 连接、Topic、录制回放：
+改 app.js
+
+新增数据库日志、Topic 专用格式化、扩展面板：
+优先挂到 assets/js/core/namespace.js 提供的 AimScope.hooks 接口
+```
+
+当前预留的扩展接口：
+
+```text
+AimScope.registerTopicFormatter(topicName, formatter)
+给某个 Topic 注册专用显示格式，例如把 /RmSerialData 显示成更易读的字段表
+
+AimScope.registerLogSink(sink)
+给事件日志注册输出目标，例如后续接 IndexedDB、SQLite、文件导出
+
+AimScope.registerPanel(name, factory)
+给后续自定义面板预留入口，例如参数调试、目标历史、数据库查询面板
 ```
 
 已经删除的旧文件：
@@ -135,7 +217,7 @@ wsl -e bash -lc "cd /mnt/d/AimScope/TinyWebServer-master && ./server -p 9006 -s 
 # 三、Demo 数据源
 
 ```text
-D:\AimScope\demo
+D:\AimScope\tools\publishers
 ```
 
 ## 1. Windows 摄像头发布器
@@ -154,7 +236,7 @@ Windows 读取电脑默认摄像头
 推荐启动命令：
 
 ```powershell
-python D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py --camera-index 0
+python D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py --camera-index 0
 ```
 
 ## 2. ROS2 demo
@@ -172,7 +254,7 @@ ROS2 环境下发布 AimScope 演示数据
 启动脚本：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/start_ros2_demo.sh
+bash /mnt/d/AimScope/scripts/ros2/start_ros2_demo.sh
 ```
 
 ## 3. ROS1 demo
@@ -195,10 +277,10 @@ aimscope_demo.py
 
 ---
 
-# 四、文档和脚本
+# 四、文档
 
 ```text
-D:\AimScope\Aimfile
+D:\AimScope\docs
 ```
 
 当前主要文档：
@@ -226,14 +308,22 @@ AimScope项目结构说明.md
 说明项目目录和文件职责
 ```
 
+---
+
+# 五、脚本
+
+```text
+D:\AimScope\scripts
+```
+
 当前主要脚本：
 
 ```text
-install_ros2_rosbridge.sh
-start_ros2_rosbridge.sh
-start_ros2_demo.sh
-attach_camera_to_wsl.ps1
-detach_camera_from_wsl.ps1
+scripts\ros2\install_ros2_rosbridge.sh
+scripts\ros2\start_ros2_rosbridge.sh
+scripts\ros2\start_ros2_demo.sh
+scripts\windows\attach_camera_to_wsl.ps1
+scripts\windows\detach_camera_from_wsl.ps1
 ```
 
 含义：
@@ -257,7 +347,25 @@ detach_camera_from_wsl.ps1
 
 ---
 
-# 五、推荐日常启动顺序
+# 六、数据目录
+
+```text
+D:\AimScope\data
+```
+
+含义：
+
+```text
+data\recordings
+AimScope 录制文件
+
+data\logs
+运行日志、临时调试截图、临时摄像头测试文件
+```
+
+---
+
+# 七、推荐日常启动顺序
 
 日常只需要这三部分：
 
@@ -270,5 +378,5 @@ detach_camera_from_wsl.ps1
 完整命令看：
 
 ```text
-D:\AimScope\Aimfile\AimScope最简启动手册.md
+D:\AimScope\docs\AimScope最简启动手册.md
 ```

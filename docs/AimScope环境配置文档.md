@@ -5,7 +5,7 @@
 如果你只是想把程序跑起来，看：
 
 ```text
-D:\AimScope\Aimfile\AimScope最简启动手册.md
+D:\AimScope\docs\AimScope最简启动手册.md
 ```
 
 ---
@@ -120,7 +120,7 @@ sudo apt install -y ros-humble-rosbridge-suite
 也可以运行项目里的脚本：
 
 ```bash
-bash /mnt/d/AimScope/Aimfile/install_ros2_rosbridge.sh
+bash /mnt/d/AimScope/scripts/ros2/install_ros2_rosbridge.sh
 ```
 
 ## 3. 安装编译 TinyWebServer 需要的依赖
@@ -161,7 +161,7 @@ make
 ROS2 demo 文件是：
 
 ```text
-D:\AimScope\demo\aimscope_demo_ros2.py
+D:\AimScope\tools\publishers\aimscope_demo_ros2.py
 ```
 
 它用于发布模拟自瞄数据，也可以尝试在 WSL 内读取摄像头。
@@ -181,7 +181,7 @@ sudo apt install -y python3-opencv python3-numpy
 发布器文件是：
 
 ```text
-D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py
+D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py
 ```
 
 它的作用：
@@ -204,7 +204,7 @@ D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py
 启动命令：
 
 ```powershell
-python D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py --camera-index 0
+python D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py --camera-index 0
 ```
 
 ---
@@ -235,7 +235,7 @@ roslaunch rosbridge_server rosbridge_websocket.launch port:=9090
 旧 ROS1 demo 是：
 
 ```text
-D:\AimScope\demo\aimscope_demo.py
+D:\AimScope\tools\publishers\aimscope_demo.py
 ```
 
 注意：
@@ -262,19 +262,19 @@ AimScope 网页
 D:\AimScope\TinyWebServer-master\root\app.js
 AimScope 前端逻辑
 
-D:\AimScope\demo\aimscope_demo_windows_rosbridge_camera.py
+D:\AimScope\tools\publishers\aimscope_demo_windows_rosbridge_camera.py
 Windows 摄像头实时发布器
 
-D:\AimScope\demo\aimscope_demo_ros2.py
+D:\AimScope\tools\publishers\aimscope_demo_ros2.py
 ROS2 demo 数据发布器
 
-D:\AimScope\demo\aimscope_demo.py
+D:\AimScope\tools\publishers\aimscope_demo.py
 旧 ROS1 demo
 
-D:\AimScope\Aimfile\start_ros2_rosbridge.sh
+D:\AimScope\scripts\ros2\start_ros2_rosbridge.sh
 启动 ROS2 rosbridge
 
-D:\AimScope\Aimfile\install_ros2_rosbridge.sh
+D:\AimScope\scripts\ros2\install_ros2_rosbridge.sh
 安装 ROS2 rosbridge
 ```
 
@@ -295,5 +295,5 @@ D:\AimScope\Aimfile\install_ros2_rosbridge.sh
 日常只看：
 
 ```text
-D:\AimScope\Aimfile\AimScope最简启动手册.md
+D:\AimScope\docs\AimScope最简启动手册.md
 ```
