@@ -76,13 +76,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Topic 状态 & 事件日志 ----
     const topicDefs = [
       {name:'/hikrobot_camera/rgb/compressed', label:'原始图像', type:'sensor_msgs/CompressedImage', warnAfter:1200, alarmAfter:2500, imageKey:'raw'},
-      {name:'/tracker/result_image/compressed', label:'结果图像', type:'sensor_msgs/CompressedImage', warnAfter:1200, alarmAfter:2500, imageKey:'result'},
+      {name:'/image_debug/compressed', label:'调试图像', type:'sensor_msgs/CompressedImage', warnAfter:1200, alarmAfter:2500, imageKey:'result'},
       {name:'/auto_angle', label:'瞄准角', type:'geometry_msgs/Vector3', warnAfter:1800, alarmAfter:4000},
       {name:'/RmSerialData', label:'串口 ROS1', type:'rm_msgs/RmSerial', warnAfter:2500, alarmAfter:5000},
       {name:'/aimscope_demo/serial', label:'串口 Demo', type:'std_msgs/Float64MultiArray', warnAfter:2500, alarmAfter:5000},
       {name:'/debugpub', label:'debug0', type:'std_msgs/Float64', warnAfter:3000, alarmAfter:6000},
       {name:'/debugpub1', label:'debug1', type:'std_msgs/Float64', warnAfter:3000, alarmAfter:6000},
       {name:'/debugpub2', label:'debug2', type:'std_msgs/Float64', warnAfter:3000, alarmAfter:6000},
+      {name:'/armor_array', label:'装甲板检测', type:'rm_msgs/ArmorArray', warnAfter:1800, alarmAfter:4000},
     ];
     const topicStatus = reactive(topicDefs.map(d=>Object.assign({}, d, {
       count:0,lastCount:0,hz:0,lastAt:null,ageMs:null,latencyMs:null,msgSize:0,state:'idle',
@@ -504,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function resetRecBuf(){
       recBuf={'/RmSerialData':[],'/auto_angle':[],'/debugpub':[],'/debugpub1':[],'/debugpub2':[]};
-      if(recordIncludeImages.value){recBuf['/hikrobot_camera/rgb/compressed']=[];recBuf['/tracker/result_image/compressed']=[];}
+      if(recordIncludeImages.value){recBuf['/hikrobot_camera/rgb/compressed']=[];recBuf['/image_debug/compressed']=[];}
       recImgN=0;recordEvents=[];recordMarkers=[];
     }
     function recMsg(topic,data){if(!isRecording.value)return;const t=Date.now()-recStart;if(!recBuf[topic])recBuf[topic]=[];recBuf[topic].push({t,d:data});}
@@ -565,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function rebuildFrameTimes() {
       pbFrameTimes = [];
       if (!pbData) return;
-      ['/hikrobot_camera/rgb/compressed','/tracker/result_image/compressed'].forEach(topic=>{
+      ['/hikrobot_camera/rgb/compressed','/image_debug/compressed'].forEach(topic=>{
         topicMessages(pbData.topics[topic]).forEach((m,i)=>pbFrameTimes.push({t:Number(m.t)||0,topic,index:i}));
       });
       pbFrameTimes.sort((a,b)=>a.t-b.t);
@@ -598,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
       imuData.bulletVec=Number(pick(d,'BulletVec','bullet_vec','bulletVec') || 0);
       return {nr,np,ny};
     }
-    function applyPbMsg(tn,d){switch(tn){case'/RmSerialData':case'/aimscope_demo/serial':applySerialData(d);break;case'/auto_angle':angleData.x=d.x;angleData.y=d.y;angleData.z=d.z;break;case'/debugpub':debugData.dbg0=d.data;break;case'/debugpub1':debugData.dbg1=d.data;break;case'/debugpub2':debugData.dbg2=d.data;break;case'/hikrobot_camera/rgb/compressed':queueCanvasFrame('raw',imagePayload(d));break;case'/tracker/result_image/compressed':queueCanvasFrame('result',imagePayload(d));break;}}
+    function applyPbMsg(tn,d){switch(tn){case'/RmSerialData':case'/aimscope_demo/serial':applySerialData(d);break;case'/auto_angle':angleData.x=d.x;angleData.y=d.y;angleData.z=d.z;break;case'/debugpub':debugData.dbg0=d.data;break;case'/debugpub1':debugData.dbg1=d.data;break;case'/debugpub2':debugData.dbg2=d.data;break;case'/hikrobot_camera/rgb/compressed':queueCanvasFrame('raw',imagePayload(d));break;case'/image_debug/compressed':queueCanvasFrame('result',imagePayload(d));break;}}
     function seekPbPct(pct){if(!pbData)return;const t=(pct/100)*pbDur.value;seekPb(t);if(isPaused.value)pbPausedOff=t;}
     function ppToggle(){if(!isPMode.value)return;isPlaying.value?pausePb():startPb();}
     function seekRel(dms){if(!isPMode.value)return;const t=Math.max(0,Math.min(pbDur.value,pbCur.value+dms));seekPb(t);if(isPaused.value)pbPausedOff=t;if(!isPlaying.value&&!isPaused.value)pbPausedOff=t;}
@@ -694,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       rawFps.value = Math.round(topicMap['/hikrobot_camera/rgb/compressed'].hz || 0);
-      resultFps.value = Math.round(topicMap['/tracker/result_image/compressed'].hz || 0);
+      resultFps.value = Math.round(topicMap['/image_debug/compressed'].hz || 0);
       displayFps.value = rawFps.value + resultFps.value;
       updateDiagSummary();
     }
@@ -775,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let mx = null;
       const start = Number(data.metadata && data.metadata.startTime);
       if (!Number.isFinite(start)) return null;
-      ['/hikrobot_camera/rgb/compressed','/tracker/result_image/compressed'].forEach(topic=>{
+      ['/hikrobot_camera/rgb/compressed','/image_debug/compressed'].forEach(topic=>{
         topicMessages(data.topics[topic]).forEach(m=>{
           const s = stampMs(m.d);
           if (s !== null) {
@@ -791,7 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!data) return buildLiveReportPayload();
       const dur = Number(data.metadata && data.metadata.duration) || calcRecordingDuration(data);
       const raw = topicMessages(data.topics['/hikrobot_camera/rgb/compressed']);
-      const result = topicMessages(data.topics['/tracker/result_image/compressed']);
+      const result = topicMessages(data.topics['/image_debug/compressed']);
       const topicSummary = {};
       let dropouts = 0;
       Object.keys(data.topics || {}).forEach(topic=>{
@@ -833,9 +834,9 @@ document.addEventListener('DOMContentLoaded', () => {
         durationMs:dur,
         summary:{
           avgRawFps:topicMap['/hikrobot_camera/rgb/compressed'].hz || 0,
-          avgResultFps:topicMap['/tracker/result_image/compressed'].hz || 0,
-          avgImageFps:((topicMap['/hikrobot_camera/rgb/compressed'].hz || 0)+(topicMap['/tracker/result_image/compressed'].hz || 0))/2,
-          maxLatencyMs:Math.max(topicMap['/hikrobot_camera/rgb/compressed'].latencyMs || 0,topicMap['/tracker/result_image/compressed'].latencyMs || 0) || null,
+          avgResultFps:topicMap['/image_debug/compressed'].hz || 0,
+          avgImageFps:((topicMap['/hikrobot_camera/rgb/compressed'].hz || 0)+(topicMap['/image_debug/compressed'].hz || 0))/2,
+          maxLatencyMs:Math.max(topicMap['/hikrobot_camera/rgb/compressed'].latencyMs || 0,topicMap['/image_debug/compressed'].latencyMs || 0) || null,
           dropouts:eventLog.filter(e=>/断流/.test(e.message)).length,
           alarms:eventLog.filter(e=>e.level==='error').length,
           warnings:eventLog.filter(e=>e.level==='warn').length,
@@ -971,8 +972,9 @@ document.addEventListener('DOMContentLoaded', () => {
       subTopic({name:'/debugpub',messageType:msgType('std_msgs/Float64','std_msgs/msg/Float64')},m=>{if(isPMode.value)return;noteTopic('/debugpub',m);debugData.dbg0=m.data;recMsg('/debugpub',{data:m.data});});
       subTopic({name:'/debugpub1',messageType:msgType('std_msgs/Float64','std_msgs/msg/Float64')},m=>{if(isPMode.value)return;noteTopic('/debugpub1',m);debugData.dbg1=m.data;recMsg('/debugpub1',{data:m.data});});
       subTopic({name:'/debugpub2',messageType:msgType('std_msgs/Float64','std_msgs/msg/Float64')},m=>{if(isPMode.value)return;noteTopic('/debugpub2',m);debugData.dbg2=m.data;recMsg('/debugpub2',{data:m.data});});
+      subTopic({name:'/armor_array',messageType:msgType('rm_msgs/ArmorArray','rm_msgs/msg/ArmorArray')},m=>{if(isPMode.value)return;noteTopic('/armor_array',m);recMsg('/armor_array',m);});
       subTopic({name:'/hikrobot_camera/rgb/compressed',messageType:msgType('sensor_msgs/CompressedImage','sensor_msgs/msg/CompressedImage'),throttle_rate:0},m=>{if(isPMode.value)return;noteTopic('/hikrobot_camera/rgb/compressed',m);rfc++;if(activeView.value==='raw')queueCanvasFrame('raw',m.data);else rawImgReceived.value=true;if(isRecording.value&&recordIncludeImages.value){recImgN++;if(recImgN%5===0&&typeof m.data==='string')recMsg('/hikrobot_camera/rgb/compressed',{data:m.data,header:m.header,format:m.format});}});
-      subTopic({name:'/tracker/result_image/compressed',messageType:msgType('sensor_msgs/CompressedImage','sensor_msgs/msg/CompressedImage'),throttle_rate:0},m=>{if(isPMode.value)return;noteTopic('/tracker/result_image/compressed',m);rsc++;if(activeView.value==='result')queueCanvasFrame('result',m.data);else resultImgReceived.value=true;if(isRecording.value&&recordIncludeImages.value){if(recImgN%5===0&&typeof m.data==='string')recMsg('/tracker/result_image/compressed',{data:m.data,header:m.header,format:m.format});}});
+      subTopic({name:'/image_debug/compressed',messageType:msgType('sensor_msgs/CompressedImage','sensor_msgs/msg/CompressedImage'),throttle_rate:0},m=>{if(isPMode.value)return;noteTopic('/image_debug/compressed',m);rsc++;if(activeView.value==='result')queueCanvasFrame('result',m.data);else resultImgReceived.value=true;if(isRecording.value&&recordIncludeImages.value){if(recImgN%5===0&&typeof m.data==='string')recMsg('/image_debug/compressed',{data:m.data,header:m.header,format:m.format});}});
     }
 
     // ---- 时间戳 ----

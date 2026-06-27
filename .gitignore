@@ -1,18 +1,30 @@
-# Runtime logs
-data/logs/*.log
-Aimfile/*.log
+# ── 编译产物 ──
+TinyWebServer-master/server
+*.o
+
+# ── 运行时数据 ──
+data/recordings/
+data/logs/
+Aimfile/
+
+# ── 日志 ──
 TinyWebServer-master/*_ServerLog
+TinyWebServer-master/*_ServerLog.*
 
-# Temporary camera/debug captures
-data/logs/latest_rosbridge_camera*.jpg
-data/logs/camera_index_test/
-data/logs/*screenshot*.png
-data/logs/chrome-headless-profile*/
-Aimfile/latest_rosbridge_camera*.jpg
-Aimfile/camera_index_test/
-Aimfile/*screenshot*.png
-Aimfile/chrome-headless-profile*/
-
-# Python cache
+# ── Python ──
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+venv/
+
+# ── 编辑器 / IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── 操作系统 ──
+.DS_Store
+Thumbs.db

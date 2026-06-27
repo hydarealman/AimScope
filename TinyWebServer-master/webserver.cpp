@@ -1,3 +1,5 @@
+// Original: https://github.com/qinguoyi/TinyWebServer (Apache 2.0)
+// Modified by AimScope: support -s 0 (no MySQL pool)
 #include "webserver.h"
 
 WebServer::WebServer()

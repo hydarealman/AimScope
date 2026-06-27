@@ -1,3 +1,5 @@
+// Original: https://github.com/qinguoyi/TinyWebServer (Apache 2.0)
+// Modified by AimScope: support m_connPool == NULL (no MySQL mode)
 #ifndef THREADPOOL_H
 #define THREADPOOL_H
 

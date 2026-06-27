@@ -262,3 +262,14 @@ CPP11实现
 Linux高性能服务器编程，游双著.
 
 感谢以下朋友的PR和帮助: [@RownH](https://github.com/RownH)，[@mapleFU](https://github.com/mapleFU)，[@ZWiley](https://github.com/ZWiley)，[@zjuHong](https://github.com/zjuHong)，[@mamil](https://github.com/mamil)，[@byfate](https://github.com/byfate)，[@MaJun827](https://github.com/MaJun827)，[@BBLiu-coder](https://github.com/BBLiu-coder)，[@smoky96](https://github.com/smoky96)，[@yfBong](https://github.com/yfBong)，[@liuwuyao](https://github.com/liuwuyao)，[@Huixxi](https://github.com/Huixxi)，[@markparticle](https://github.com/markparticle)，[@blogg9ggg](https://github.com/Blogg9ggg).
+
+License & Acknowledgements
+------------
+This project is built for the RoboMaster competition. The TinyWebServer component is based on [qinguoyi/TinyWebServer](https://github.com/qinguoyi/TinyWebServer), licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details.
+
+Modifications to TinyWebServer source files are noted in the file headers of:
+- `webserver.cpp`
+- `http/http_conn.cpp`
+- `threadpool/threadpool.h`
+
+Third-party frontend libraries (Vue 3 — MIT, Three.js — MIT, roslib.js — BSD) are used under their respective licenses. See [NOTICE.md](NOTICE.md) for details.

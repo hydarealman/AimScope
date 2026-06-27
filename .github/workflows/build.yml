@@ -1,0 +1,35 @@
+name: Build TinyWebServer
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'TinyWebServer-master/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'TinyWebServer-master/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: TinyWebServer-master
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libmysqlclient-dev
+
+      - name: Build server
+        run: make
+
+      - name: Verify binary
+        run: |
+          ls -lh server
+          file server
+          ./server -h 2>/dev/null || echo "(-h may exit non-zero; binary exists and is executable)"

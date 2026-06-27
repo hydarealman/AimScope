@@ -1,10 +1,6 @@
 # AimScope — 自瞄网页调试器
 
 <p align="center">
-  <img src="TinyWebServer-master/root/favicon.ico" width="64" height="64" alt="AimScope Icon">
-</p>
-
-<p align="center">
   <strong>Auto Aim Debugger · Real-time ROS Monitoring Dashboard · RoboMaster</strong>
 </p>
 
@@ -455,4 +451,8 @@ All documentation is in Chinese, located in [`docs/`](docs/):
 
 ## License
 
-This project is built for the RoboMaster competition. The TinyWebServer component is based on [qinguoyi/TinyWebServer](https://github.com/qinguoyi/TinyWebServer).
+AimScope is licensed under the [MIT License](LICENSE).
+
+The TinyWebServer component is based on [qinguoyi/TinyWebServer](https://github.com/qinguoyi/TinyWebServer), licensed under the Apache License, Version 2.0.
+
+Modifications to TinyWebServer source files (`webserver.cpp`, `http/http_conn.cpp`, `threadpool/threadpool.h`) are noted in their file headers. Third-party frontend libraries (Vue 3 — MIT, Three.js — MIT, roslib.js — BSD) are used under their respective licenses.

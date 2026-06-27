@@ -1,3 +1,5 @@
+// Original: https://github.com/qinguoyi/TinyWebServer (Apache 2.0)
+// Modified by AimScope: URL query/fragment stripping, default page changed to index.html
 #include "http_conn.h"
 
 #include <mysql/mysql.h>
