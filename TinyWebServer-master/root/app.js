@@ -3,10 +3,15 @@
  * Vue 3 + ROS + Three.js (lazy) + 可交互时序图
  */
 const AimScope = window.AimScope || {};
-const { RingBuffer, InteractiveChart } = AimScope;
+const { RingBuffer, InteractiveChart, ConfigEditor, DiffViewer } = AimScope;
 if (!RingBuffer || !InteractiveChart) {
   throw new Error('AimScope core modules are not loaded.');
 }
+// v3 API modules (optional — degrade gracefully)
+const AuthAPI = AimScope.AuthAPI || null;
+const ParamAPI = AimScope.ParamAPI || null;
+const ReplayAPI = AimScope.ReplayAPI || null;
+const BenchmarkAPI = AimScope.BenchmarkAPI || null;
 
 // ============================================================
 // Vue 3 应用
@@ -98,6 +103,278 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionStartAt = Date.now();
     const eventDedupe = new Map();
     const topicInspect = reactive({open:false,name:'',copied:false});
+
+    // ---- v3.0 Tab 导航 ----
+    const activeTab = ref('monitor');
+    function switchTab(tab) {
+      activeTab.value = tab;
+      // Auto-load data when switching tabs
+      if (tab === 'replay') loadReplaySessions();
+      if (tab === 'params') loadParamConfigs();
+      if (tab === 'benchmark') { loadReplaySessions(); loadParamConfigs(); loadBenchmarkRuns(); }
+    }
+
+    // ---- v3.0 认证 ----
+    const showLogin = ref(false);
+    const loginMode = ref(true);
+    const authUser = ref(AuthAPI ? AuthAPI.getUser() : null);
+    const loginForm = reactive({ username: '', password: '', role: 'TESTER' });
+    const loginError = ref('');
+    async function doLogin() {
+      loginError.value = '';
+      if (!AuthAPI) { loginError.value = 'Auth API 未加载'; return; }
+      try {
+        if (loginMode.value) {
+          var result = await AuthAPI.login(loginForm.username, loginForm.password);
+          authUser.value = AuthAPI.getUser();
+          showLogin.value = false;
+        } else {
+          await AuthAPI.register(loginForm.username, loginForm.password, loginForm.role);
+          loginMode.value = true;
+          loginError.value = '注册成功，请登录';
+        }
+      } catch (e) {
+        loginError.value = e.message || '认证失败';
+      }
+    }
+    function doLogout() {
+      if (AuthAPI) AuthAPI.logout();
+      authUser.value = null;
+    }
+
+    // ---- v3.0 回放 ----
+    const replaySessions = ref([]);
+    const activeReplayId = ref(null);
+    const uploadProgress = ref(-1);
+    const replayPlaying = ref(false);
+    const replayCursor = ref(0);
+    const replayDuration = ref(10000);
+    const replayTopics = ref([]);
+    const replayTopicFilter = ref('');
+    const analysisEvents = ref([]);
+    var replayPlayTimer = null;
+
+    async function loadReplaySessions() {
+      if (!ReplayAPI) return;
+      try { replaySessions.value = await ReplayAPI.list(); } catch (e) { /* silent */ }
+    }
+    function triggerUpload() {
+      var el = document.querySelector('input[ref="replayFileInput"]');
+      if (!el) { var all = document.querySelectorAll('input[type="file"]'); for (var i = 0; i < all.length; i++) { if (all[i].accept.indexOf('.bag') >= 0) { el = all[i]; break; } } }
+      if (el) el.click();
+    }
+    function handleFileDrop(e) {
+      var file = e.dataTransfer.files[0];
+      if (file) uploadReplayFile(file);
+    }
+    function handleReplayUpload(e) {
+      var file = e.target.files[0];
+      if (file) uploadReplayFile(file);
+      e.target.value = '';
+    }
+    async function uploadReplayFile(file) {
+      if (!ReplayAPI) return;
+      uploadProgress.value = 0;
+      try {
+        var session = await ReplayAPI.upload(file, function(pct) { uploadProgress.value = pct; });
+        uploadProgress.value = 100;
+        await loadReplaySessions();
+        selectReplaySession(session);
+      } catch (e) {
+        alert('上传失败: ' + e.message);
+      }
+      setTimeout(function() { uploadProgress.value = -1; }, 2000);
+    }
+    function selectReplaySession(s) {
+      activeReplayId.value = s.id;
+      replayDuration.value = s.totalDurationMs || 10000;
+      replayCursor.value = 0;
+      analysisEvents.value = [];
+      // Load analysis events
+      if (ReplayAPI && s.status === 'READY') {
+        ReplayAPI.queryEvents(s.id, 0, s.totalDurationMs).then(function(data) {
+          analysisEvents.value = data.events || [];
+        }).catch(function() {});
+      }
+    }
+    function seekReplayMs(ms) {
+      replayCursor.value = Math.max(0, Math.min(replayDuration.value, ms));
+      if (!activeReplayId.value || !ReplayAPI) return;
+      var topicFilter = replayTopicFilter.value || void 0;
+      var from = Math.max(0, ms - 2500);
+      var to = ms + 2500;
+      // Query data for current window
+      if (topicFilter) {
+        ReplayAPI.queryData(activeReplayId.value, topicFilter, from, to).then(function(data) {
+          // In real impl, push to charts
+        }).catch(function() {});
+      }
+    }
+    function replayPlayPause() {
+      if (replayPlaying.value) {
+        replayPlaying.value = false;
+        if (replayPlayTimer) { clearInterval(replayPlayTimer); replayPlayTimer = null; }
+      } else {
+        replayPlaying.value = true;
+        replayPlayTimer = setInterval(function() {
+          replayCursor.value = Math.min(replayDuration.value, replayCursor.value + 50);
+          if (replayCursor.value >= replayDuration.value) {
+            replayPlaying.value = false;
+            if (replayPlayTimer) { clearInterval(replayPlayTimer); replayPlayTimer = null; }
+          }
+        }, 50);
+      }
+    }
+
+    // ---- v3.0 参数管理 ----
+    var paramEditor = null;
+    const paramConfigs = ref([]);
+    const activeParamId = ref(null);
+    const activeParamName = ref('');
+    const paramViewMode = ref('edit');
+    const paramVersions = ref([]);
+    const diffV1 = ref(1);
+    const diffV2 = ref(2);
+
+    async function loadParamConfigs() {
+      if (!ParamAPI) return;
+      try { paramConfigs.value = await ParamAPI.list(); } catch (e) { /* silent */ }
+    }
+    function selectParamConfig(pc) {
+      activeParamId.value = pc.id;
+      activeParamName.value = pc.name;
+      paramViewMode.value = 'edit';
+      diffV1.value = Math.max(1, (pc.currentVersion || 1) - 1);
+      diffV2.value = pc.currentVersion || 1;
+      loadParamVersions(pc.id);
+      // Load content into editor
+      ParamAPI.get(pc.id).then(function(data) {
+        var content = data.currentContent || '';
+        initParamEditor(content, data.fileType);
+      }).catch(function() {});
+    }
+    function newParamConfig() {
+      var name = (window.prompt && window.prompt('配置名称 (如 ekf_params_v2.yaml):', '')) || '';
+      if (!name) return;
+      var fileType = name.endsWith('.json') ? 'JSON' : 'YAML';
+      if (ParamAPI) {
+        ParamAPI.create({ name: name, description: '', fileType: fileType, content: '# ' + name + '\n' }).then(function(pc) {
+          loadParamConfigs();
+          selectParamConfig(pc);
+        }).catch(function(e) { alert('创建失败: ' + e.message); });
+      }
+    }
+    function initParamEditor(content, fileType) {
+      var container = document.querySelector('[ref="paramEditorContainer"]');
+      if (!container) return;
+      if (paramEditor) paramEditor.destroy();
+      if (ConfigEditor) {
+        paramEditor = ConfigEditor(container, {
+          value: content,
+          mode: (fileType || 'YAML').toLowerCase(),
+          onChange: function() {},
+          onSave: function(v) { saveParamConfig(); }
+        });
+      }
+    }
+    async function saveParamConfig() {
+      if (!activeParamId.value || !ParamAPI) return;
+      var content = paramEditor ? paramEditor.getValue() : '';
+      try {
+        await ParamAPI.update(activeParamId.value, { content: content, message: '更新 ' + activeParamName.value });
+        loadParamVersions(activeParamId.value);
+        loadParamConfigs();
+      } catch (e) {
+        alert('保存失败: ' + e.message);
+      }
+    }
+    async function loadParamVersions(configId) {
+      if (!ParamAPI) return;
+      try { paramVersions.value = await ParamAPI.versions(configId); } catch (e) { /* silent */ }
+    }
+    function viewParamVersion(v) {
+      if (!ParamAPI || !activeParamId.value) return;
+      ParamAPI.getVersion(activeParamId.value, v.versionNum).then(function(data) {
+        if (paramEditor) paramEditor.setValue(data.content);
+        paramViewMode.value = 'edit';
+      }).catch(function() {});
+    }
+    async function rollbackParam(versionNum) {
+      if (!ParamAPI || !activeParamId.value) return;
+      if (!confirm('确认回滚到 v' + versionNum + '?')) return;
+      try {
+        await ParamAPI.rollback(activeParamId.value, versionNum);
+        loadParamVersions(activeParamId.value);
+        loadParamConfigs();
+      } catch (e) { alert('回滚失败: ' + e.message); }
+    }
+    function loadDiff() {
+      if (!ParamAPI || !activeParamId.value) return;
+      var container = document.querySelector('[ref="diffContainer"]');
+      ParamAPI.diff(activeParamId.value, diffV1.value, diffV2.value).then(function(data) {
+        if (DiffViewer && container) {
+          container.innerHTML = '';
+          DiffViewer(container, {
+            oldText: data.oldContent || '',
+            newText: data.newContent || '',
+            oldLabel: 'v' + diffV1.value,
+            newLabel: 'v' + diffV2.value
+          });
+        }
+      }).catch(function(e) { alert('Diff 加载失败: ' + e.message); });
+    }
+
+    // ---- v3.0 自动化测试 ----
+    const benchmarkRuns = ref([]);
+    const activeBenchmarkId = ref(null);
+    const activeBenchmark = ref(null);
+    const showNewBenchmark = ref(false);
+    const newBenchmark = reactive({ name: '', replayId: null, configAId: null, configBId: null });
+
+    async function loadBenchmarkRuns() {
+      if (!BenchmarkAPI) return;
+      try { benchmarkRuns.value = await BenchmarkAPI.list(); } catch (e) { /* silent */ }
+    }
+    function selectBenchmark(br) {
+      activeBenchmarkId.value = br.id;
+      activeBenchmark.value = br;
+    }
+    async function createBenchmark() {
+      if (!BenchmarkAPI) return;
+      try {
+        var run = await BenchmarkAPI.create({
+          name: newBenchmark.name,
+          replayId: newBenchmark.replayId,
+          configAId: newBenchmark.configAId,
+          configBId: newBenchmark.configBId
+        });
+        showNewBenchmark.value = false;
+        loadBenchmarkRuns();
+        selectBenchmark(run);
+      } catch (e) { alert('创建失败: ' + e.message); }
+    }
+
+    // ---- v3.0 工具函数 ----
+    function fmtMs(ms) {
+      if (!Number.isFinite(ms)) return '--';
+      var s = Math.floor(ms / 1000);
+      return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') + '.' + String(Math.floor(ms % 1000)).padStart(3, '0');
+    }
+    function renderMarkdown(md) {
+      if (!md) return '';
+      return md
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/\|(.+)\|/g, function(m) { return '<tr>' + m.split('|').filter(function(x) { return x; }).map(function(c) { return '<td>' + c.trim() + '</td>'; }).join('') + '</tr>'; })
+        .replace(/\n\n/g, '<br><br>');
+    }
+    function parseMetrics(jsonStr) {
+      try { return JSON.parse(jsonStr); } catch (e) { return {}; }
+    }
 
     function eventTime() {
       return new Date().toLocaleTimeString('zh-CN', {hour12:false});
@@ -1054,10 +1331,15 @@ document.addEventListener('DOMContentLoaded', () => {
       connectROS();startFps();startDiagnostics();startTs();
       document.addEventListener('keydown',onKD);
       nextTick(()=>{ initCharts(); });
+      // v3.0: preload data for tabs
+      if (ReplayAPI) loadReplaySessions();
+      if (ParamAPI) loadParamConfigs();
     });
     onUnmounted(()=>{
       disconnectROS();if(tsT)clearInterval(tsT);if(fpsT)clearInterval(fpsT);if(diagT)clearInterval(diagT);
       if(recTI)clearInterval(recTI);if(pbRAF)cancelAnimationFrame(pbRAF);
+      if(replayPlayTimer)clearInterval(replayPlayTimer);
+      if(paramEditor)paramEditor.destroy();
       cancelScheduledChartRender();
       document.removeEventListener('keydown',onKD);document.removeEventListener('visibilitychange',onVisibilityChange);destroy3D();
       if(chartIMU)chartIMU.destroy();if(chartAngle)chartAngle.destroy();if(chartDebug)chartDebug.destroy();
@@ -1067,6 +1349,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- 暴露给模板 ----
     return {
+      // v2.x existing
       theme,toggleTheme,connStatus,connClass,connLastError,isRosConnected,
       rosUrl,rosUrlDraft,rosVersion,applyRosUrl,disconnectROS,connectROS,
       imuData,angleData,debugData,flashKeys,timestamp,displayFps,rawFps,resultFps,
@@ -1084,6 +1367,30 @@ document.addEventListener('DOMContentLoaded', () => {
       isPlaying,isPaused,isPMode,pbCur,pbDur,pbSpeed,pbProgress,pbTimeDisp,
       loadPbInput,ppToggle,stopPb,exitPb,seekPbPct,seekRel,stepPbFrame,seekPb,
       showCharts,chartIMUCanvas,chartAngleCanvas,chartDebugCanvas,chartRanges,applyChartRange,
+
+      // v3.0 tabs & auth
+      activeTab,switchTab,
+      showLogin,loginMode,authUser,loginForm,loginError,doLogin,doLogout,
+
+      // v3.0 replay
+      replaySessions,activeReplayId,uploadProgress,
+      replayPlaying,replayCursor,replayDuration,replayTopics,replayTopicFilter,
+      analysisEvents,
+      triggerUpload,handleFileDrop,handleReplayUpload,
+      selectReplaySession,seekReplayMs,replayPlayPause,
+
+      // v3.0 params
+      paramConfigs,activeParamId,activeParamName,paramViewMode,paramVersions,
+      diffV1,diffV2,
+      selectParamConfig,newParamConfig,saveParamConfig,
+      viewParamVersion,rollbackParam,loadDiff,
+
+      // v3.0 benchmark
+      benchmarkRuns,activeBenchmarkId,activeBenchmark,showNewBenchmark,newBenchmark,
+      selectBenchmark,createBenchmark,
+
+      // v3.0 utils
+      fmtMs,renderMarkdown,parseMetrics,
     };
   }});
   app.mount('#app');

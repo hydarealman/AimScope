@@ -16,9 +16,15 @@
     <div class="top-title">
       <span class="top-mark"></span>
       <span>AimScope</span>
-      <span class="top-sub">Auto Aim Debugger</span>
+      <span class="top-sub">v3.0</span>
     </div>
-    <div class="top-metrics">
+    <nav class="top-tabs">
+      <button class="top-tab" :class="{active:activeTab==='monitor'}" @click="switchTab('monitor')">实时监控</button>
+      <button class="top-tab" :class="{active:activeTab==='replay'}" @click="switchTab('replay')">数据回放</button>
+      <button class="top-tab" :class="{active:activeTab==='params'}" @click="switchTab('params')">参数管理</button>
+      <button class="top-tab" :class="{active:activeTab==='benchmark'}" @click="switchTab('benchmark')">自动化测试</button>
+    </nav>
+    <div class="top-metrics" v-if="activeTab==='monitor'">
       <span class="top-chip" :class="connClass">{{ connStatus }}</span>
       <span class="top-chip good">Raw {{ rawFps }} FPS</span>
       <span class="top-chip good">Result {{ resultFps }} FPS</span>
@@ -29,6 +35,10 @@
       <span class="top-chip" :class="{recording:isRecording,warn:isPMode}">
         {{ isPMode ? '回放 ' + pbTimeDisp : (isRecording ? '录制 ' + recordTimer : '实时监看') }}
       </span>
+    </div>
+    <div class="top-auth">
+      <span v-if="authUser" class="top-chip good">{{ authUser.role }}: {{ authUser.username }}</span>
+      <button class="top-tab auth-btn" @click="authUser ? doLogout() : (showLogin=!showLogin)">{{ authUser ? '登出' : '登录' }}</button>
     </div>
   </header>
 
@@ -352,6 +362,217 @@
     <button class="pb-mini" @click="exportReport">导出报告</button>
     <button class="pb-exit" @click="exitPb">退出</button>
   </div>
+
+  <!-- ==========================================================
+       登录弹窗
+       ========================================================== -->
+  <div v-if="showLogin" class="modal-overlay" @click.self="showLogin=false">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>{{ loginMode ? '登录' : '注册' }}</span>
+        <button class="modal-close" @click="showLogin=false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span>用户名</span>
+          <input v-model="loginForm.username" type="text" placeholder="admin">
+        </label>
+        <label class="field">
+          <span>密码</span>
+          <input v-model="loginForm.password" type="password" @keyup.enter="doLogin">
+        </label>
+        <label class="field" v-if="!loginMode">
+          <span>角色</span>
+          <select v-model="loginForm.role">
+            <option value="TESTER">TESTER</option>
+            <option value="ENGINEER">ENGINEER</option>
+          </select>
+        </label>
+        <div v-if="loginError" class="field-err">{{ loginError }}</div>
+        <div class="modal-actions">
+          <button class="modal-btn primary" @click="doLogin">{{ loginMode ? '登录' : '注册' }}</button>
+          <button class="modal-btn" @click="loginMode=!loginMode">{{ loginMode ? '去注册' : '去登录' }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       数据回放 Tab
+       ========================================================== -->
+  <div v-if="activeTab==='replay'" class="tab-panel replay-panel">
+    <div class="tab-split">
+      <div class="tab-sidebar">
+        <h3>回放会话</h3>
+        <div class="upload-zone" @click="triggerUpload" @dragover.prevent @drop.prevent="handleFileDrop">
+          <span>点击或拖拽上传 rosbag / JSON</span>
+          <input type="file" ref="replayFileInput" accept=".bag,.mcap,.json,.aimscope.json" style="display:none" @change="handleReplayUpload">
+        </div>
+        <div v-if="uploadProgress>=0 && uploadProgress<100" class="upload-prog">
+          <div class="prog-bar"><div class="prog-fill" :style="{width:uploadProgress+'%'}"></div></div>
+          <span>{{ uploadProgress }}%</span>
+        </div>
+        <div class="session-list">
+          <div v-if="!replaySessions.length" class="muted">暂无回放会话</div>
+          <div v-for="s in replaySessions" :key="s.id" class="session-item" :class="{active:activeReplayId===s.id}" @click="selectReplaySession(s)">
+            <div class="si-name">{{ s.originalFilename || 'Session #'+s.id }}</div>
+            <div class="si-meta">
+              <span class="si-status" :class="s.status">{{ s.status }}</span>
+              <span v-if="s.topicCount">{{ s.topicCount }} topics</span>
+              <span v-if="s.totalDurationMs">{{ (s.totalDurationMs/1000).toFixed(1) }}s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-main">
+        <div v-if="!activeReplayId" class="placeholder">选择或上传一个回放会话</div>
+        <div v-else class="replay-detail">
+          <div class="replay-toolbar">
+            <button class="sm-btn" @click="replayPlayPause">{{ replayPlaying ? '暂停' : '播放' }}</button>
+            <input type="range" min="0" :max="replayDuration" step="50" :value="replayCursor" @input="seekReplayMs(parseFloat($event.target.value))" class="replay-slider">
+            <span class="replay-time">{{ fmtMs(replayCursor) }} / {{ fmtMs(replayDuration) }}</span>
+            <select v-model="replayTopicFilter" class="sm-select">
+              <option value="">全部 Topics</option>
+              <option v-for="t in replayTopics" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+          <div class="replay-events">
+            <h4>分析事件 <span class="muted">({{ analysisEvents.length }})</span></h4>
+            <div v-if="!analysisEvents.length" class="muted">暂无异常事件</div>
+            <div v-for="ev in analysisEvents" :key="ev.t" class="event-row" :class="ev.level" @click="seekReplayMs(ev.t)">
+              <span class="event-time">{{ fmtMs(ev.t) }}</span>
+              <span class="event-level">{{ ev.level==='error'?'报警':(ev.level==='warn'?'警告':'信息') }}</span>
+              <span class="event-msg">{{ ev.message }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       参数管理 Tab
+       ========================================================== -->
+  <div v-if="activeTab==='params'" class="tab-panel params-panel">
+    <div class="tab-split">
+      <div class="tab-sidebar">
+        <h3>配置文件</h3>
+        <button class="sm-btn" @click="newParamConfig">+ 新建配置</button>
+        <div class="session-list">
+          <div v-if="!paramConfigs.length" class="muted">暂无配置</div>
+          <div v-for="pc in paramConfigs" :key="pc.id" class="session-item" :class="{active:activeParamId===pc.id}" @click="selectParamConfig(pc)">
+            <div class="si-name">{{ pc.name }}</div>
+            <div class="si-meta">
+              <span>{{ pc.fileType }}</span>
+              <span>v{{ pc.currentVersion || 1 }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-main">
+        <div v-if="!activeParamId" class="placeholder">选择或新建一个配置文件</div>
+        <div v-else class="param-detail">
+          <div class="ce-toolbar">
+            <span>{{ activeParamName }}</span>
+            <span class="spacer"></span>
+            <button @click="paramViewMode='edit'" :class="{'ce-save':paramViewMode==='edit'}">编辑</button>
+            <button @click="paramViewMode='history'">版本历史</button>
+            <button @click="paramViewMode='diff'">Diff</button>
+            <button v-if="paramViewMode==='edit'" class="ce-save" @click="saveParamConfig">保存</button>
+          </div>
+          <div v-show="paramViewMode==='edit'" ref="paramEditorContainer" class="editor-container"></div>
+          <div v-show="paramViewMode==='history'" class="version-list">
+            <div v-if="!paramVersions.length" class="muted">暂无历史版本</div>
+            <div v-for="v in paramVersions" :key="v.id" class="version-item">
+              <span class="ver-num">v{{ v.versionNum }}</span>
+              <span class="ver-msg">{{ v.message || '--' }}</span>
+              <span class="ver-author">{{ v.author ? v.author.username : '--' }}</span>
+              <span class="ver-time">{{ v.createdAt }}</span>
+              <span class="ver-hash mono">{{ (v.gitCommitHash||'').slice(0,7) }}</span>
+              <button class="sm-btn" @click="viewParamVersion(v)">查看</button>
+              <button class="sm-btn" @click="rollbackParam(v.versionNum)">回滚</button>
+            </div>
+          </div>
+          <div v-show="paramViewMode==='diff'" class="diff-container" ref="diffContainer">
+            <div v-if="paramVersions.length<2" class="muted">需要至少两个版本才能对比</div>
+            <div v-else class="diff-controls">
+              <select v-model="diffV1">
+                <option v-for="v in paramVersions" :key="v.id" :value="v.versionNum">v{{ v.versionNum }}</option>
+              </select>
+              <span>vs</span>
+              <select v-model="diffV2">
+                <option v-for="v in paramVersions" :key="v.id" :value="v.versionNum">v{{ v.versionNum }}</option>
+              </select>
+              <button class="sm-btn" @click="loadDiff">对比</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================
+       自动化测试 Tab
+       ========================================================== -->
+  <div v-if="activeTab==='benchmark'" class="tab-panel benchmark-panel">
+    <div class="tab-split">
+      <div class="tab-sidebar">
+        <h3>跑分任务</h3>
+        <button class="sm-btn" @click="showNewBenchmark=!showNewBenchmark">+ 新建跑分</button>
+        <div class="session-list">
+          <div v-if="!benchmarkRuns.length" class="muted">暂无跑分</div>
+          <div v-for="br in benchmarkRuns" :key="br.id" class="session-item" :class="{active:activeBenchmarkId===br.id}" @click="selectBenchmark(br)">
+            <div class="si-name">{{ br.name }}</div>
+            <div class="si-meta">
+              <span class="si-status" :class="br.status">{{ br.status }}</span>
+              <span>{{ br.createdAt }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-main">
+        <div v-if="showNewBenchmark" class="benchmark-form">
+          <h4>新建跑分任务</h4>
+          <label class="field"><span>名称</span><input v-model="newBenchmark.name" placeholder="测试名称"></label>
+          <label class="field"><span>回放会话</span>
+            <select v-model="newBenchmark.replayId">
+              <option :value="null">-- 选择 --</option>
+              <option v-for="s in replaySessions" :key="s.id" :value="s.id">{{ s.originalFilename || 'Session #'+s.id }}</option>
+            </select>
+          </label>
+          <label class="field"><span>参数 A</span>
+            <select v-model="newBenchmark.configAId">
+              <option :value="null">-- 无 --</option>
+              <option v-for="c in paramConfigs" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </label>
+          <label class="field"><span>参数 B</span>
+            <select v-model="newBenchmark.configBId">
+              <option :value="null">-- 无 --</option>
+              <option v-for="c in paramConfigs" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </label>
+          <div class="modal-actions">
+            <button class="modal-btn primary" @click="createBenchmark">开始跑分</button>
+            <button class="modal-btn" @click="showNewBenchmark=false">取消</button>
+          </div>
+        </div>
+        <div v-else-if="!activeBenchmarkId" class="placeholder">选择或新建一个跑分任务</div>
+        <div v-else class="benchmark-detail">
+          <h4>{{ activeBenchmark ? activeBenchmark.name : '' }}</h4>
+          <div class="si-meta" v-if="activeBenchmark"><span class="si-status" :class="activeBenchmark.status">{{ activeBenchmark.status }}</span></div>
+          <div v-if="activeBenchmark && activeBenchmark.reportMarkdown" class="report-content" v-html="renderMarkdown(activeBenchmark.reportMarkdown)"></div>
+          <div v-if="activeBenchmark && activeBenchmark.metricsJson" class="metrics-grid">
+            <div class="met-cell" v-for="(val,key) in parseMetrics(activeBenchmark.metricsJson)" :key="key">
+              <span class="met-key">{{ key }}</span>
+              <span class="met-val">{{ val }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="assets/js/ui/panel-resize.js?v=20260612-refactor"></script>
@@ -359,6 +580,14 @@
 <script src="assets/js/core/namespace.js?v=20260612-refactor"></script>
 <script src="assets/js/core/ring-buffer.js?v=20260612-refactor"></script>
 <script src="assets/js/ui/interactive-chart.js?v=20260612-refactor"></script>
+
+<script src="assets/js/api/auth-api.js?v=20260630"></script>
+<script src="assets/js/api/param-api.js?v=20260630"></script>
+<script src="assets/js/api/replay-api.js?v=20260630"></script>
+<script src="assets/js/api/benchmark-api.js?v=20260630"></script>
+<script src="assets/js/ui/config-editor.js?v=20260630"></script>
+<script src="assets/js/ui/diff-viewer.js?v=20260630"></script>
+
 <script src="roslib.min.js"></script>
 <script src="app.js?v=20260612-refactor"></script>
 </body>

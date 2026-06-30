@@ -28,3 +28,17 @@ venv/
 # ── 操作系统 ──
 .DS_Store
 Thumbs.db
+
+# ── Java / Maven (backend) ──
+backend/target/
+*.class
+*.jar
+!backend/src/**/*.jar
+
+# ── Spring Boot runtime ──
+backend/uploads/
+backend/logs/
+*.log
+
+# ── Downloaded packages ──
+*.deb
